@@ -1,0 +1,36 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: single-drop-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: single-drop-backend
+    restart: unless-stopped
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: single_drop
+      CORS_ORIGINS: "*"
+    depends_on:
+      - mongo
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: single-drop-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  mongo_data:
