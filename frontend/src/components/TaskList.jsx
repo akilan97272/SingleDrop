@@ -3,11 +3,11 @@ import { CheckIcon, XIcon } from './Icons'
 
 function StatusBadge({ status }) {
   const map = {
-    planned: 'bg-brand-100 text-brand-700 dark:bg-white/10 dark:text-brand-200',
-    completed: 'bg-brand-500 text-white',
-    completed_late: 'bg-amber-400 text-amber-950',
-    missed: 'bg-rose-500/15 text-rose-600 dark:text-rose-300',
-    disbanded: 'bg-zinc-400/20 text-zinc-500 dark:text-zinc-300',
+    planned: 'chip-accent',
+    completed: 'chip-success',
+    completed_late: 'chip-warning',
+    missed: 'chip-danger',
+    disbanded: 'chip-muted',
   }
   const text = {
     planned: 'planned',
@@ -16,20 +16,18 @@ function StatusBadge({ status }) {
     missed: 'missed',
     disbanded: 'disbanded',
   }
-  return <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${map[status]}`}>{text[status]}</span>
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${map[status]}`}>
+      {text[status]}
+    </span>
+  )
 }
 
-export default function TaskList({
-  items,
-  onComplete,
-  onCompleteLate,
-  onDisband,
-  emptyText = 'No tasks here.',
-  showDate = true,
-}) {
+export default function TaskList({ items, onComplete, onCompleteLate, onDisband, emptyText = 'No tasks here.', showDate = true }) {
   if (!items?.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-brand-900/15 p-6 text-center text-sm text-brand-700/60 dark:border-white/10 dark:text-brand-300/60">
+      <div className="glass rounded-2xl p-6 text-center text-sm text-secondary-c"
+           style={{ borderStyle: 'dashed' }}>
         {emptyText}
       </div>
     )
@@ -40,33 +38,37 @@ export default function TaskList({
       {items.map((task) => (
         <div
           key={task.id}
-          className="rounded-2xl border border-brand-900/10 bg-white p-4 transition hover:border-brand-300 dark:border-white/10 dark:bg-brand-950/40 dark:hover:border-brand-600/50"
+          className="glass rounded-2xl p-4 transition hover:brightness-110"
+          style={{ borderRadius: '16px' }}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{task.title}</span>
+                <span className="font-semibold text-primary-c">{task.title}</span>
                 <StatusBadge status={task.status} />
               </div>
               {task.description && (
-                <div className="mt-0.5 truncate text-sm text-brand-700/70 dark:text-brand-300/70">
+                <div className="mt-0.5 truncate text-sm text-secondary-c">
                   #{task.description}
                 </div>
               )}
               {showDate && (
-                <div className="mt-1 font-mono text-[11px] text-brand-700/50 dark:text-brand-300/50">
+                <div className="mt-1 font-mono text-[11px] text-disabled-c">
                   {task.label}
                 </div>
               )}
               {task.missed_reason && (
-                <div className="mt-1 text-xs italic text-rose-500/80">{task.missed_reason}</div>
+                <div className="chip-danger mt-1 rounded-lg px-2 py-0.5 text-xs italic inline-block">
+                  {task.missed_reason}
+                </div>
               )}
             </div>
             <div className="flex shrink-0 gap-2">
               {onComplete && task.status === 'planned' && (
                 <button
                   onClick={() => onComplete(task.id)}
-                  className="flex items-center gap-1 rounded-xl bg-brand-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-600"
+                  className="btn-accent flex items-center gap-1 px-3 py-2 text-xs font-semibold"
+                  style={{ borderRadius: '12px' }}
                 >
                   <CheckIcon /> Done
                 </button>
@@ -74,7 +76,7 @@ export default function TaskList({
               {onCompleteLate && task.status === 'missed' && (
                 <button
                   onClick={() => onCompleteLate(task.id)}
-                  className="flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-semibold text-amber-950 transition hover:bg-amber-300"
+                  className="chip-warning flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold transition hover:brightness-110"
                 >
                   <CheckIcon /> Complete
                 </button>
@@ -82,7 +84,7 @@ export default function TaskList({
               {onDisband && task.status === 'missed' && (
                 <button
                   onClick={() => onDisband(task.id)}
-                  className="flex items-center gap-1 rounded-xl bg-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-300 dark:bg-white/10 dark:text-zinc-200 dark:hover:bg-white/20"
+                  className="chip-muted flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold transition hover:brightness-110"
                 >
                   <XIcon /> Disband
                 </button>

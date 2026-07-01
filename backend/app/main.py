@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 import os
 from datetime import date, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 from bson import ObjectId
-from fastapi.staticfiles import StaticFiles
+
 from .db import get_db
 from .schemas import (
     TaskCreate, TaskOut, DashboardOut, TrackerOut, DailyPoint,
@@ -17,7 +18,7 @@ from .services import (
 )
 
 app = FastAPI(title="Single Drop API", version="1.0.0")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
 origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
@@ -51,6 +52,7 @@ def to_task_out(doc: dict) -> TaskOut:
         kind=classify_kind(planned, current),
         label=task_label(doc),
     )
+
 
 async def auto_miss_overdue() -> None:
     """Tasks never drag forward. Anything still 'planned' once its day has

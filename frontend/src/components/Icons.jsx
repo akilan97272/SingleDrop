@@ -85,6 +85,12 @@ export const FlameIcon = (p) => (
   </svg>
 )
 
+export const ZapIcon = (p) => (
+  <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...p}>
+    <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
+  </svg>
+)
+
 export const ShieldIcon = (p) => (
   <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...p}>
     <path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" />

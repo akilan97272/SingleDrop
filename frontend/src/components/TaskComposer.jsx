@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const inputClass = 'rounded-2xl border border-brand-900/15 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500 dark:border-white/10 dark:bg-brand-950/60 dark:text-brand-50'
+const inputClass = 'input-glass px-4 py-3 text-sm outline-none transition'
 
 export default function TaskComposer({ onCreate, fixedDate, minDate, helperText, buttonLabel = 'Add task' }) {
   const [title, setTitle] = useState('')
@@ -35,7 +35,7 @@ export default function TaskComposer({ onCreate, fixedDate, minDate, helperText,
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 rounded-3xl border border-brand-900/10 bg-brand-50/60 p-4 dark:border-white/10 dark:bg-white/5">
+    <form onSubmit={submit} className="glass grid gap-3 p-4">
       <div className={`grid gap-3 ${fixedDate ? '' : 'md:grid-cols-2'}`}>
         <input
           className={inputClass}
@@ -60,17 +60,17 @@ export default function TaskComposer({ onCreate, fixedDate, minDate, helperText,
         onChange={(e) => setDescription(e.target.value)}
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-brand-700/60 dark:text-brand-300/60">
+        <div className="text-xs text-secondary-c">
           {helperText || 'The date is fixed once added. Completion never changes it.'}
         </div>
         <button
           disabled={busy}
-          className="rounded-2xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:bg-brand-700 disabled:opacity-60"
+          className="btn-accent px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
         >
           {busy ? 'Adding…' : buttonLabel}
         </button>
       </div>
-      {error && <div className="text-xs font-medium text-rose-500">{error}</div>}
+      {error && <div className="chip-danger rounded-lg px-2.5 py-1.5 text-xs font-medium">{error}</div>}
     </form>
   )
 }

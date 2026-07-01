@@ -23,14 +23,20 @@ export default function FuturePlans() {
 
   return (
     <Shell>
-      <main className="mx-auto grid max-w-4xl gap-6 px-4 py-6">
-        <div className="rounded-3xl border border-brand-900/10 bg-gradient-to-br from-brand-500/10 via-white to-white p-6 text-center dark:border-white/10 dark:from-brand-500/10 dark:via-brand-950/40 dark:to-brand-950/40">
-          <h1 className="text-xl font-black leading-snug sm:text-2xl">
-            "You will become what <em>you do</em>, not what you say <em>you will do</em>."
+      <main className="mx-auto grid max-w-4xl gap-5 px-4 py-6">
+
+        {/* Hero */}
+        <div className="glass p-8 text-center" style={{ backgroundImage: 'var(--accent-gradient)', border: 'none' }}>
+          <h1 className="text-xl font-black leading-snug text-white sm:text-2xl">
+            "You will become what <em>you do</em>,<br />
+            not what you say <em>you will do</em>."
           </h1>
         </div>
 
-        <SectionCard title="Add a future plan" subtitle="Anything past tomorrow. It will be reminded daily in the notification box until the day arrives.">
+        <SectionCard
+          title="Add a future plan"
+          subtitle="Anything past tomorrow. Reminded daily in your notification box until the day arrives."
+        >
           <TaskComposer
             onCreate={createTask}
             minDate={minDate}
@@ -40,9 +46,10 @@ export default function FuturePlans() {
         </SectionCard>
 
         <SectionCard title="Future plans">
-          {error && <div className="mb-3 text-sm text-rose-500">{error}</div>}
+          {error && <div className="chip-danger mb-3 rounded-lg p-3 text-sm">{error}</div>}
           <TaskList items={plans} emptyText="No future plans yet." />
         </SectionCard>
+
       </main>
     </Shell>
   )

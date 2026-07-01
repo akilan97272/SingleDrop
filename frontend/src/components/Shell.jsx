@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { api } from '../api'
 import {
   TrackerIcon, FutureIcon, DeprecatedIcon, PlanIcon, BellIcon,
-  SunIcon, MoonIcon, HomeIcon, ListIcon,
+  SunIcon, MoonIcon, ZapIcon, HomeIcon, ListIcon,
 } from './Icons'
 
 function IconLink({ to, title, active, children }) {
@@ -14,8 +14,8 @@ function IconLink({ to, title, active, children }) {
       title={title}
       className={`grid h-10 w-10 place-items-center rounded-xl border transition
         ${active
-          ? 'border-brand-500 bg-brand-500 text-white shadow-glow'
-          : 'border-brand-900/10 bg-white/70 text-brand-700 hover:bg-brand-50 dark:border-white/10 dark:bg-white/5 dark:text-brand-200 dark:hover:bg-white/10'}`}
+          ? 'btn-accent border-transparent'
+          : 'btn-ghost-glass border-[var(--glass-border)] text-secondary-c hover:text-primary-c'}`}
     >
       {children}
     </Link>
@@ -39,33 +39,33 @@ function NotificationBell({ notifications, mindsetNote }) {
       <button
         title="Notifications"
         onClick={() => setOpen((o) => !o)}
-        className="relative grid h-10 w-10 place-items-center rounded-xl border border-brand-900/10 bg-white/70 text-brand-700 transition hover:bg-brand-50 dark:border-white/10 dark:bg-white/5 dark:text-brand-200 dark:hover:bg-white/10"
+        className="btn-ghost-glass relative grid h-10 w-10 place-items-center rounded-xl border border-[var(--glass-border)] text-secondary-c transition hover:text-primary-c"
       >
         <BellIcon />
         {notifications?.length > 0 && (
-          <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-brand-500 text-[10px] font-bold text-white">
+          <span className="glow-pink absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold text-white" style={{ backgroundImage: 'var(--accent-gradient)' }}>
             {notifications.length}
           </span>
         )}
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-80 max-w-[88vw] rounded-2xl border border-brand-900/10 bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-brand-950">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-300">
+        <div className="glass-strong absolute right-0 z-30 mt-2 w-80 max-w-[88vw] p-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-secondary-c">
             Notification box
           </div>
-          <div className="grid max-h-72 gap-2 overflow-y-auto pr-1">
+          <div className="grid max-h-72 gap-2 overflow-y-auto pr-1 scrollbar-glass">
             {notifications?.length ? (
               notifications.map((n, i) => (
-                <div key={i} className="rounded-xl bg-brand-50 p-2.5 text-sm text-brand-900 dark:bg-white/5 dark:text-brand-100">
+                <div key={i} className="glass rounded-xl p-2.5 text-sm text-primary-c">
                   {n.message}
                 </div>
               ))
             ) : (
-              <div className="text-sm text-brand-700/70 dark:text-brand-200/70">Nothing pending.</div>
+              <div className="text-sm text-secondary-c">Nothing pending.</div>
             )}
           </div>
           {mindsetNote && (
-            <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-2.5 text-xs text-amber-700 dark:text-amber-200">
+            <div className="chip-warning mt-3 rounded-xl p-2.5 text-xs">
               {mindsetNote}
             </div>
           )}
@@ -75,9 +75,42 @@ function NotificationBell({ notifications, mindsetNote }) {
   )
 }
 
+const THEME_OPTIONS = [
+  { key: 'light', label: 'Light', Icon: SunIcon },
+  { key: 'dark', label: 'Dark', Icon: MoonIcon },
+  { key: 'rage', label: 'Rage', Icon: ZapIcon },
+]
+
+function ThemeSwitcher() {
+  const { theme, setTheme } = useTheme()
+  return (
+    <div className="glass-pill flex items-center gap-0.5 p-1">
+      {THEME_OPTIONS.map(({ key, label, Icon }) => {
+        const active = theme === key
+        return (
+          <button
+            key={key}
+            title={label}
+            onClick={() => setTheme(key)}
+            className={`grid h-8 w-8 place-items-center rounded-full transition ${
+              active
+                ? key === 'rage'
+                  ? 'glow-pink text-white'
+                  : 'text-white'
+                : 'text-secondary-c hover:text-primary-c'
+            }`}
+            style={active ? { backgroundImage: 'var(--accent-gradient)' } : undefined}
+          >
+            <Icon />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Shell({ children }) {
   const location = useLocation()
-  const { theme, toggle } = useTheme()
   const is = (p) => location.pathname === p
   const [notif, setNotif] = useState({ notifications: [], mindset_note: '' })
 
@@ -90,14 +123,14 @@ export default function Shell({ children }) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#eafbf1,_#f6fdf9_45%,_#ffffff_100%)] text-brand-950 transition-colors dark:bg-[radial-gradient(circle_at_top,_#0c2418,_#071a10_45%,_#040f0a_100%)] dark:text-brand-50">
-      <header className="sticky top-0 z-20 border-b border-brand-900/10 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-brand-950/70">
+    <div className="min-h-screen text-primary-c transition-colors">
+      <header className="sticky top-0 z-20 border-b" style={{ borderColor: 'var(--glass-border)', background: 'var(--header-bg)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="flex items-center gap-3">
-            <img src="/assets/logo.png" alt="Single Drop logo" className="h-11 w-11 rounded-2xl shadow-glow" />
+            <img src="/assets/logo.png" alt="Single Drop logo" className="glow-purple h-11 w-11 rounded-2xl" />
             <div>
-              <div className="text-lg font-black leading-none tracking-tight">Single Drop</div>
-              <div className="text-[11px] text-brand-700/70 dark:text-brand-300/70">one day. one drop. no date dragging.</div>
+              <div className="text-lg font-black leading-none tracking-tight gradient-text">Single Drop</div>
+              <div className="text-[11px] text-secondary-c">one day. one drop. no date dragging.</div>
             </div>
           </Link>
 
@@ -109,20 +142,14 @@ export default function Shell({ children }) {
             <IconLink to="/deprecated" title="Deprecated / missed tasks" active={is('/deprecated')}><DeprecatedIcon /></IconLink>
             <IconLink to="/plan-tomorrow" title="Plan your tomorrow" active={is('/plan-tomorrow')}><PlanIcon /></IconLink>
             <NotificationBell notifications={notif.notifications} mindsetNote={notif.mindset_note} />
-            <button
-              title="Toggle light / dark"
-              onClick={toggle}
-              className="grid h-10 w-10 place-items-center rounded-xl border border-brand-900/10 bg-white/70 text-brand-700 transition hover:bg-brand-50 dark:border-white/10 dark:bg-white/5 dark:text-brand-200 dark:hover:bg-white/10"
-            >
-              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-            </button>
+            <ThemeSwitcher />
           </nav>
         </div>
       </header>
 
       {children}
 
-      <footer className="mx-auto max-w-7xl px-4 pb-10 pt-6 text-center text-xs text-brand-700/60 dark:text-brand-300/50">
+      <footer className="mx-auto max-w-7xl px-4 pb-10 pt-6 text-center text-xs text-disabled-c">
         built for the days you still show up.
       </footer>
     </div>

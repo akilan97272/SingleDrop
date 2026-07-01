@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 export default function GridTracker({ grid }) {
   const weeks = useMemo(() => {
@@ -10,9 +10,7 @@ export default function GridTracker({ grid }) {
     const lead = first.getDay()
     const padded = Array(lead).fill(null).concat(cells)
     const cols = []
-    for (let i = 0; i < padded.length; i += 7) {
-      cols.push(padded.slice(i, i + 7))
-    }
+    for (let i = 0; i < padded.length; i += 7) cols.push(padded.slice(i, i + 7))
     return cols
   }, [grid])
 
@@ -23,10 +21,7 @@ export default function GridTracker({ grid }) {
       const firstReal = week.find(Boolean)
       if (!firstReal) return
       const m = new Date(firstReal.day).getMonth()
-      if (m !== lastMonth) {
-        labels.push({ index: wi, label: MONTH_NAMES[m] })
-        lastMonth = m
-      }
+      if (m !== lastMonth) { labels.push({ index: wi, label: MONTH_NAMES[m] }); lastMonth = m }
     })
     return labels
   }, [weeks])
@@ -36,26 +31,19 @@ export default function GridTracker({ grid }) {
   return (
     <div className="overflow-x-auto">
       <div className="inline-block min-w-full">
-        <div className="mb-1 flex gap-[3px] pl-7 text-[10px] text-brand-700/50 dark:text-brand-300/50">
+        {/* Month labels */}
+        <div className="mb-1 flex gap-[3px] pl-7 text-[10px] text-disabled-c">
           {weeks.map((_, wi) => {
             const found = monthLabels.find((m) => m.index === wi)
-            return (
-              <div key={wi} className="w-[12px]">
-                {found ? found.label : ''}
-              </div>
-            )
+            return <div key={wi} className="w-[12px]">{found ? found.label : ''}</div>
           })}
         </div>
         <div className="flex gap-[3px]">
-          <div className="grid grid-rows-7 gap-[3px] pr-1 text-[10px] text-brand-700/50 dark:text-brand-300/50">
-            <div />
-            <div>Mon</div>
-            <div />
-            <div>Wed</div>
-            <div />
-            <div>Fri</div>
-            <div />
+          {/* Day labels */}
+          <div className="grid grid-rows-7 gap-[3px] pr-1 text-[10px] text-disabled-c">
+            <div /><div>Mon</div><div /><div>Wed</div><div /><div>Fri</div><div />
           </div>
+          {/* Cells */}
           <div className="flex gap-[3px]">
             {weeks.map((week, wi) => (
               <div key={wi} className="grid grid-rows-7 gap-[3px]">
@@ -64,20 +52,21 @@ export default function GridTracker({ grid }) {
                     <div
                       key={di}
                       title={`${cell.day}: ${cell.count} completed`}
-                      className={`heat-${cell.level} h-[12px] w-[12px] rounded-[3px]`}
+                      className={`heat-${cell.level} h-[12px] w-[12px] rounded-[3px] transition`}
                     />
                   ) : (
                     <div key={di} className="h-[12px] w-[12px]" />
-                  ),
+                  )
                 )}
               </div>
             ))}
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-1.5 text-[11px] text-brand-700/50 dark:text-brand-300/50">
+      {/* Legend */}
+      <div className="mt-3 flex items-center gap-1.5 text-[11px] text-disabled-c">
         Less
-        {[0, 1, 2, 3, 4].map((l) => (
+        {[0,1,2,3,4].map((l) => (
           <div key={l} className={`heat-${l} h-[12px] w-[12px] rounded-[3px]`} />
         ))}
         More

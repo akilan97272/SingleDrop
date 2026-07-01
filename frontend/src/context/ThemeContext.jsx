@@ -1,24 +1,35 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 const ThemeContext = createContext(null)
+const THEMES = ['light', 'dark', 'rage']
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
+  const [theme, setThemeState] = useState(() => {
     const saved = localStorage.getItem('single-drop-theme')
-    if (saved === 'light' || saved === 'dark') return saved
+    if (THEMES.includes(saved)) return saved
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
 
   useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
+    document.documentElement.setAttribute('data-theme', theme)
+    document.documentElement.classList.toggle('dark', theme !== 'light')
     localStorage.setItem('single-drop-theme', theme)
   }, [theme])
 
-  const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  const setTheme = (t) => {
+    if (THEMES.includes(t)) setThemeState(t)
+  }
 
-  return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>
+  const cycle = () => {
+    const i = THEMES.indexOf(theme)
+    setThemeState(THEMES[(i + 1) % THEMES.length])
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme, cycle, themes: THEMES }}>
+      {children}
+    </ThemeContext.Provider>
+  )
 }
 
 export function useTheme() {

@@ -21,8 +21,7 @@ export default function TasksPage() {
   const filtered = useMemo(() => {
     if (filter === 'all') return all
     if (filter === 'completed') return all.filter((t) => t.status === 'completed' || t.status === 'completed_late')
-    if (filter === 'upcoming') return all.filter((t) => t.status === 'planned')
-    return all
+    return all.filter((t) => t.status === 'planned')
   }, [all, filter])
 
   const completeTask = (id) => api.completeTask(id).then(load)
@@ -34,16 +33,17 @@ export default function TasksPage() {
           title="Completed & upcoming tasks"
           subtitle="Everything you've added, sorted by planned date."
           action={
-            <div className="flex gap-2">
+            <div className="glass-pill flex gap-1 p-1">
               {FILTERS.map((f) => (
                 <button
                   key={f.key}
                   onClick={() => setFilter(f.key)}
-                  className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                     filter === f.key
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-brand-900/5 text-brand-700 hover:bg-brand-900/10 dark:bg-white/5 dark:text-brand-200 dark:hover:bg-white/10'
+                      ? 'text-white'
+                      : 'text-secondary-c hover:text-primary-c'
                   }`}
+                  style={filter === f.key ? { backgroundImage: 'var(--accent-gradient)' } : undefined}
                 >
                   {f.label}
                 </button>
@@ -51,7 +51,7 @@ export default function TasksPage() {
             </div>
           }
         >
-          {error && <div className="mb-3 text-sm text-rose-500">{error}</div>}
+          {error && <div className="chip-danger mb-3 rounded-lg p-3 text-sm">{error}</div>}
           <TaskList items={filtered} onComplete={completeTask} emptyText="No tasks found for this filter." />
         </SectionCard>
       </main>
