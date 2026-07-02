@@ -1,3 +1,5 @@
 venv/*
 static/*
 dist/*
+.env
+__pycache__/*
