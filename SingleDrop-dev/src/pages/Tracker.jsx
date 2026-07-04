@@ -84,9 +84,8 @@ export default function Tracker() {
           <StatCard icon={<DeprecatedIcon />} label="Deprecated"     value={stats.deprecated_count} sub="disbanded" />
         </div>
 
-        {/* GitHub grid */}
+        {/* Contribution grid */}
         <SectionCard
-          title="GitHub-style tracker"
           subtitle="More colour = more tasks completed on that day."
           action={
             <div className="glass-pill flex gap-1 p-1">

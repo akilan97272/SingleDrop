@@ -42,13 +42,13 @@ export default function TaskList({ items, onComplete, onCompleteLate, onDisband,
           style={{ borderRadius: '16px' }}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-primary-c">{task.title}</span>
+                <span className="break-words min-w-0 font-semibold text-primary-c [overflow-wrap:anywhere]">{task.title}</span>
                 <StatusBadge status={task.status} />
               </div>
               {task.description && (
-                <div className="mt-0.5 truncate text-sm text-secondary-c">
+                <div className="mt-0.5 break-words text-sm text-secondary-c [overflow-wrap:anywhere]">
                   #{task.description}
                 </div>
               )}

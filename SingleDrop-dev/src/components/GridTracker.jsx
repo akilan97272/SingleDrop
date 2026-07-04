@@ -39,10 +39,6 @@ export default function GridTracker({ grid }) {
           })}
         </div>
         <div className="flex gap-[3px]">
-          {/* Day labels */}
-          <div className="grid grid-rows-7 gap-[3px] pr-1 text-[13px] text-disabled-c">
-            <div /><div>Mon</div><div /><div>Wed</div><div /><div>Fri</div><div />
-          </div>
           {/* Cells */}
           <div className="flex gap-[3px]">
             {weeks.map((week, wi) => (
