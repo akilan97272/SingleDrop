@@ -5,7 +5,7 @@ import { api } from '../api'
 import {
   HomeIcon, ListIcon, TrackerIcon, TimelineIcon,
   FutureIcon, DeprecatedIcon, PlanIcon,
-  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon,
+  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon, TimerIcon, HelpIcon,
 } from './Icons'
 
 /* ── theme meta ── */
@@ -21,12 +21,13 @@ const NAV = [
   { to: '/tasks',         Icon: ListIcon,       label: 'Tasks'        },
   { to: '/tracker',       Icon: TrackerIcon,    label: 'Tracker'      },
   { to: '/timeline',      Icon: TimelineIcon,   label: 'Timeline'     },
+  { to: '/pomodoro',      Icon: TimerIcon,      label: 'Pomodoro'     },
   { to: '/future-plans',  Icon: FutureIcon,     label: 'Future Plans' },
   { to: '/deprecated',    Icon: DeprecatedIcon, label: 'Deprecated'   },
   { to: '/plan-tomorrow', Icon: PlanIcon,       label: 'Plan Tomorrow'},
 ]
 const DOCK_LEFT  = ['/', '/tasks']
-const DOCK_RIGHT = ['/tracker', '/timeline']
+const DOCK_RIGHT = ['/tracker', '/pomodoro']
 
 /* ── sub-components ── */
 
@@ -160,10 +161,10 @@ export default function Shell({ children, onQuickAdd }) {
             <NotifBell notifications={notif.notifications} mindsetNote={notif.mindset_note} />
             <ThemeCycler />
             <div
-              className="grid h-8 w-8 place-items-center rounded-full text-xs font-black text-white"
-              style={{ backgroundImage: 'var(--accent-gradient)' }}
+              className="grid h-8 w-8 place-items-center rounded-full border border-[var(--glass-border)] text-secondary-c btn-ghost-glass transition hover:text-primary-c"
+              title="Help"
             >
-              SD
+              <HelpIcon />
             </div>
           </div>
         </div>

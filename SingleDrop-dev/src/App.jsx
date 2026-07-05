@@ -7,6 +7,7 @@ import PlanTomorrow from './pages/PlanTomorrow'
 import FuturePlans from './pages/FuturePlans'
 import Deprecated  from './pages/Deprecated'
 import TimelinePage from './pages/Timeline'
+import PomodoroPage from './pages/Pomodoro'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
       <Route path="/future-plans"   element={<FuturePlans />}  />
       <Route path="/deprecated"     element={<Deprecated />}   />
       <Route path="/timeline"       element={<TimelinePage />} />
+      <Route path="/pomodoro"       element={<PomodoroPage />} />
       <Route path="*"               element={<Navigate to="/" replace />} />
     </Routes>
   )

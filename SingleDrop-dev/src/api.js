@@ -34,4 +34,10 @@ export const api = {
   deleteTimeline:      (id)        => request(`/api/timelines/${id}`,                     { method: 'DELETE' }),
   addTimelineTask:     (id, p)     => request(`/api/timelines/${id}/tasks`,               { method: 'POST',   body: JSON.stringify(p) }),
   deleteTimelineTask:  (id, tid)   => request(`/api/timelines/${id}/tasks/${tid}`,        { method: 'DELETE' }),
+
+  // Pomodoro
+  pomodoroSessions: (limit = 30) => request(`/api/pomodoro/sessions?limit=${limit}`),
+  pomodoroStats:    ()            => request('/api/pomodoro/stats'),
+  startPomodoro:    (p)           => request('/api/pomodoro/sessions',                    { method: 'POST',  body: JSON.stringify(p) }),
+  completePomodoro: (id, p)       => request(`/api/pomodoro/sessions/${id}/complete`,     { method: 'PATCH', body: JSON.stringify(p) }),
 }
