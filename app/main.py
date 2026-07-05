@@ -2,7 +2,7 @@ from __future__ import annotations
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
@@ -13,6 +13,7 @@ from .schemas import (
     TaskCreate, TaskOut, DashboardOut, TrackerOut, DailyPoint,
     NotificationItem, StatsOut,
     TimelineCreate, TimelineTaskCreate, TimelineOut, TimelineTaskOut,
+    PomodoroSessionCreate, PomodoroSessionComplete, PomodoroSessionOut, PomodoroStatsOut,
 )
 from .services import (
     today_local, task_label, compute_streak, classify_kind, parse_date,
@@ -453,6 +454,127 @@ async def tracker(days: int = 90):
     )
 
 @app.get("/{full_path:path}")
+# ═══════════════════════════════════════════════════
+#  POMODORO
+# ═══════════════════════════════════════════════════
+
+def pomo_coll():
+    return get_db()["pomodoro_sessions"]
+
+
+def to_pomo_out(doc: dict) -> PomodoroSessionOut:
+    refl = doc.get("reflection")
+    from .schemas import ReflectionData
+    return PomodoroSessionOut(
+        id=str(doc["_id"]),
+        start_time=doc["start_time"],
+        end_time=doc.get("end_time"),
+        work_minutes=doc["work_minutes"],
+        break_minutes=doc["break_minutes"],
+        planned_cycles=doc["planned_cycles"],
+        completed_cycles=doc.get("completed_cycles", 0),
+        total_focus_minutes=doc.get("total_focus_minutes", 0),
+        total_break_minutes=doc.get("total_break_minutes", 0),
+        interrupted=doc.get("interrupted", False),
+        linked_task_id=doc.get("linked_task_id"),
+        linked_task_title=doc.get("linked_task_title"),
+        reflection=ReflectionData(**refl) if refl else None,
+    )
+
+
+@app.post("/api/pomodoro/sessions", response_model=PomodoroSessionOut)
+async def create_pomodoro_session(payload: PomodoroSessionCreate):
+    linked_title = None
+    if payload.linked_task_id:
+        try:
+            t = await coll().find_one({"_id": ObjectId(payload.linked_task_id)})
+            if t:
+                linked_title = t["title"]
+        except Exception:
+            pass
+    doc = {
+        "_id": ObjectId(),
+        "start_time": datetime.utcnow().isoformat(),
+        "end_time": None,
+        "work_minutes": payload.work_minutes,
+        "break_minutes": payload.break_minutes,
+        "planned_cycles": payload.planned_cycles,
+        "completed_cycles": 0,
+        "total_focus_minutes": 0.0,
+        "total_break_minutes": 0.0,
+        "interrupted": False,
+        "linked_task_id": payload.linked_task_id,
+        "linked_task_title": linked_title,
+        "reflection": None,
+    }
+    await pomo_coll().insert_one(doc)
+    return to_pomo_out(doc)
+
+
+@app.patch("/api/pomodoro/sessions/{session_id}/complete", response_model=PomodoroSessionOut)
+async def complete_pomodoro_session(session_id: str, payload: PomodoroSessionComplete):
+    try:
+        oid = ObjectId(session_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid session id")
+    doc = await pomo_coll().find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    refl = payload.reflection.model_dump() if payload.reflection else None
+    await pomo_coll().update_one({"_id": oid}, {"$set": {
+        "end_time": payload.end_time,
+        "total_focus_minutes": payload.total_focus_minutes,
+        "total_break_minutes": payload.total_break_minutes,
+        "completed_cycles": payload.completed_cycles,
+        "interrupted": payload.interrupted,
+        "reflection": refl,
+    }})
+    return to_pomo_out(await pomo_coll().find_one({"_id": oid}))
+
+
+@app.get("/api/pomodoro/sessions", response_model=list[PomodoroSessionOut])
+async def list_pomodoro_sessions(limit: int = 30):
+    docs = await pomo_coll().find(
+        {"end_time": {"$ne": None}}
+    ).sort("start_time", -1).to_list(length=limit)
+    return [to_pomo_out(d) for d in docs]
+
+
+@app.get("/api/pomodoro/stats", response_model=PomodoroStatsOut)
+async def pomodoro_stats():
+    now = datetime.utcnow()
+    today_start = datetime(now.year, now.month, now.day).isoformat()
+    week_start = (datetime(now.year, now.month, now.day) - timedelta(days=now.weekday())).isoformat()
+
+    docs = await pomo_coll().find(
+        {"end_time": {"$ne": None}, "interrupted": False}
+    ).to_list(length=10000)
+
+    total_today = sum(d["total_focus_minutes"] for d in docs if d.get("start_time", "") >= today_start)
+    total_week = sum(d["total_focus_minutes"] for d in docs if d.get("start_time", "") >= week_start)
+    sessions_completed = len(docs)
+    longest = max((d["total_focus_minutes"] for d in docs), default=0)
+    average = (sum(d["total_focus_minutes"] for d in docs) / sessions_completed) if sessions_completed else 0
+
+    hour_counts: dict[int, float] = {}
+    for d in docs:
+        try:
+            h = datetime.fromisoformat(d["start_time"]).hour
+            hour_counts[h] = hour_counts.get(h, 0) + d["total_focus_minutes"]
+        except Exception:
+            pass
+    most_productive = max(hour_counts, key=hour_counts.get) if hour_counts else None
+
+    return PomodoroStatsOut(
+        total_focus_today=round(total_today, 1),
+        total_focus_week=round(total_week, 1),
+        longest_session=round(longest, 1),
+        average_session=round(average, 1),
+        sessions_completed=sessions_completed,
+        most_productive_hour=most_productive,
+    )
+
+
 async def spa_fallback(full_path: str):
     if full_path.startswith("api"):
             raise HTTPException(status_code=404)

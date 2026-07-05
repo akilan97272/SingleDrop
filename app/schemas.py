@@ -119,3 +119,53 @@ class TrackerOut(BaseModel):
     completed_series: list[DailyPoint]
     missed_series: list[DailyPoint]
     stats: StatsOut
+
+
+# ── Pomodoro ──────────────────────────────────────────────────────────────────
+
+class ReflectionData(BaseModel):
+    focus_score: Optional[int] = None   # 1–5
+    distracted: Optional[bool] = None
+    energy_score: Optional[int] = None  # 1–5
+    would_repeat: Optional[bool] = None
+
+
+class PomodoroSessionCreate(BaseModel):
+    work_minutes: int = Field(default=25, ge=1, le=120)
+    break_minutes: int = Field(default=5, ge=1, le=60)
+    planned_cycles: int = Field(default=4, ge=1, le=20)
+    linked_task_id: Optional[str] = None
+
+
+class PomodoroSessionComplete(BaseModel):
+    end_time: str                       # ISO datetime
+    total_focus_minutes: float
+    total_break_minutes: float
+    completed_cycles: int
+    interrupted: bool
+    reflection: Optional[ReflectionData] = None
+
+
+class PomodoroSessionOut(BaseModel):
+    id: str
+    start_time: str
+    end_time: Optional[str] = None
+    work_minutes: int
+    break_minutes: int
+    planned_cycles: int
+    completed_cycles: int
+    total_focus_minutes: float
+    total_break_minutes: float
+    interrupted: bool
+    linked_task_id: Optional[str] = None
+    linked_task_title: Optional[str] = None
+    reflection: Optional[ReflectionData] = None
+
+
+class PomodoroStatsOut(BaseModel):
+    total_focus_today: float    # minutes
+    total_focus_week: float     # minutes
+    longest_session: float      # minutes
+    average_session: float      # minutes
+    sessions_completed: int
+    most_productive_hour: Optional[int] = None  # 0–23
