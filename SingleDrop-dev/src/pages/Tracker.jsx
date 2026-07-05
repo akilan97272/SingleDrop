@@ -76,7 +76,7 @@ export default function Tracker() {
             value={stats.streak}
             sub={stats.shield_used ? '🛡 shield used' : '🛡 shield intact'}
             accent
-            glowClass={theme === 'rage' ? 'glow-pink' : ''}
+            glowClass=""
           />
           <StatCard icon={<CheckIcon />}     label="Completed"      value={stats.total_completed} />
           <StatCard icon={<ListIcon />}       label="Started"        value={stats.total_started} />

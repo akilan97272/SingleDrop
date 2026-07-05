@@ -15,7 +15,7 @@ export const PlanIcon       = (p) => <svg viewBox="0 0 24 24" width={20} height=
 export const BellIcon       = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 13 6 9Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>
 export const SunIcon        = (p) => <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>
 export const MoonIcon       = (p) => <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...p}><path d="M21 12.5A9 9 0 1 1 11.5 3a7 7 0 0 0 9.5 9.5Z" /></svg>
-export const ZapIcon        = (p) => <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...p}><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" /></svg>
+export const MonoIcon   = (p) => <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></svg>
 export const HomeIcon       = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" /></svg>
 export const ListIcon       = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></svg>
 export const CheckIcon      = (p) => <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...p}><path d="M20 6 9 17l-5-5" /></svg>

@@ -5,14 +5,14 @@ import { api } from '../api'
 import {
   HomeIcon, ListIcon, TrackerIcon, TimelineIcon,
   FutureIcon, DeprecatedIcon, PlanIcon,
-  BellIcon, SunIcon, MoonIcon, ZapIcon, PlusIcon,
+  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon,
 } from './Icons'
 
 /* ── theme meta ── */
 const THEME_META = {
-  light: { Icon: SunIcon,  label: 'Light' },
-  dark:  { Icon: MoonIcon, label: 'Dark'  },
-  rage:  { Icon: ZapIcon,  label: 'Rage'  },
+  light: { Icon: SunIcon,   label: 'Light' },
+  dark:  { Icon: MoonIcon,  label: 'Dark'  },
+  mono:  { Icon: MonoIcon,  label: 'Mono'  },
 }
 
 /* ── nav items ── */
