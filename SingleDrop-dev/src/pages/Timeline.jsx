@@ -133,26 +133,36 @@ function TLCard({ tl, onDelete, onTaskDelete, onRefresh }) {
           )}
           {tl.tasks.map(t => (
             <div key={t.id}
-                 className={`glass rounded-xl p-3 transition ${t.is_today ? 'brightness-110' : ''}`}
+                 className={`glass overflow-hidden rounded-xl p-3 transition ${t.is_today ? 'brightness-110' : ''}`}
                  style={t.is_today ? { background: `color-mix(in srgb, ${colorHex} 8%, transparent)` } : undefined}>
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-semibold text-sm text-primary-c">{t.title}</span>
-                    <span className={`${statusStyle(t.status)} rounded-full px-2 py-0.5 text-[13px] font-bold uppercase`}>
+                    <span
+                      className="min-w-0 font-semibold text-sm text-primary-c"
+                      style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                    >
+                      {t.title}
+                    </span>
+                    <span className={`shrink-0 ${statusStyle(t.status)} rounded-full px-2 py-0.5 text-[13px] font-bold uppercase`}>
                       {t.status}
                     </span>
-                    {t.is_today && <span className="text-[13px] font-bold" style={{ color: colorHex }}>◆ today</span>}
+                    {t.is_today && <span className="shrink-0 text-[13px] font-bold" style={{ color: colorHex }}>◆ today</span>}
                   </div>
                   {t.description && (
-                    <p className="text-xs text-disabled-c mb-1.5 truncate">#{t.description}</p>
+                    <p
+                      className="text-xs text-disabled-c mb-1.5"
+                      style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                    >
+                      #{t.description}
+                    </p>
                   )}
                   <ProgressBar value={t.progress} color={colorHex} />
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="font-mono text-[13px] text-disabled-c">
+                  <div className="flex items-center justify-between mt-1 gap-2">
+                    <span className="font-mono text-[13px] text-disabled-c shrink-0">
                       {fmt(t.start_date)} → {fmt(t.end_date)}
                     </span>
-                    <span className="text-[13px] text-secondary-c">
+                    <span className="text-[13px] text-secondary-c shrink-0">
                       {t.days_elapsed}/{t.days_total}d &nbsp; {Math.round(t.progress*100)}%
                     </span>
                   </div>

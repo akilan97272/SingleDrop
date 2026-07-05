@@ -97,7 +97,7 @@ function NavLink({ to, Icon, label, active }) {
   return (
     <Link
       to={to}
-      className={`group flex h-8 items-center gap-0 overflow-hidden rounded-full border px-2 transition-all duration-200 hover:gap-1.5 hover:px-3 ${
+      className={`group flex h-8 items-center gap-0 overflow-hidden rounded-full border px-2 transition-all duration-700 hover:gap-1.5 hover:px-3 ${
         active
           ? 'border-transparent text-white'
           : 'btn-ghost-glass border-[var(--glass-border)] text-secondary-c hover:text-primary-c'
@@ -105,7 +105,7 @@ function NavLink({ to, Icon, label, active }) {
       style={active ? { backgroundImage: 'var(--accent-gradient)' } : undefined}
     >
       <Icon className="shrink-0" />
-      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover:max-w-[120px] group-hover:opacity-100">
+      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-700 group-hover:max-w-[120px] group-hover:opacity-100">
         {label}
       </span>
     </Link>
