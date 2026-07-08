@@ -544,32 +544,61 @@ async def list_pomodoro_sessions(limit: int = 30):
 async def pomodoro_stats():
     now = datetime.utcnow()
     today_start = datetime(now.year, now.month, now.day).isoformat()
-    week_start = (datetime(now.year, now.month, now.day) - timedelta(days=now.weekday())).isoformat()
+    week_start  = (datetime(now.year, now.month, now.day) - timedelta(days=now.weekday())).isoformat()
 
     docs = await pomo_coll().find(
         {"end_time": {"$ne": None}, "interrupted": False}
     ).to_list(length=10000)
 
-    total_today = sum(d["total_focus_minutes"] for d in docs if d.get("start_time", "") >= today_start)
-    total_week = sum(d["total_focus_minutes"] for d in docs if d.get("start_time", "") >= week_start)
-    sessions_completed = len(docs)
-    longest = max((d["total_focus_minutes"] for d in docs), default=0)
-    average = (sum(d["total_focus_minutes"] for d in docs) / sessions_completed) if sessions_completed else 0
+    if not docs:
+        return PomodoroStatsOut(
+            total_focus_today=0.0,
+            total_focus_week=0.0,
+            longest_session=0.0,
+            average_session=0.0,
+            sessions_completed=0,
+            most_productive_hour=None,
+        )
 
+    focus_today  = 0.0
+    focus_week   = 0.0
+    longest      = 0.0
+    total_focus  = 0.0
     hour_counts: dict[int, float] = {}
+
     for d in docs:
+        fm = float(d.get("total_focus_minutes") or 0)
+        st = d.get("start_time") or ""
+        total_focus += fm
+        if fm > longest:
+            longest = fm
+        if st >= today_start:
+            focus_today += fm
+        if st >= week_start:
+            focus_week += fm
         try:
-            h = datetime.fromisoformat(d["start_time"]).hour
-            hour_counts[h] = hour_counts.get(h, 0) + d["total_focus_minutes"]
+            h = int(datetime.fromisoformat(st).hour)
+            hour_counts[h] = hour_counts.get(h, 0.0) + fm
         except Exception:
             pass
-    most_productive = max(hour_counts, key=hour_counts.get) if hour_counts else None
+
+    sessions_completed = int(len(docs))
+    average = total_focus / sessions_completed if sessions_completed else 0.0
+
+    # Explicit loop avoids passing bound method to max() (Python 3.14 serialiser issue)
+    most_productive: int | None = None
+    if hour_counts:
+        best_val = -1.0
+        for h, v in hour_counts.items():
+            if v > best_val:
+                best_val = v
+                most_productive = int(h)
 
     return PomodoroStatsOut(
-        total_focus_today=round(total_today, 1),
-        total_focus_week=round(total_week, 1),
-        longest_session=round(longest, 1),
-        average_session=round(average, 1),
+        total_focus_today=round(float(focus_today), 1),
+        total_focus_week=round(float(focus_week), 1),
+        longest_session=round(float(longest), 1),
+        average_session=round(float(average), 1),
         sessions_completed=sessions_completed,
         most_productive_hour=most_productive,
     )
