@@ -10,15 +10,22 @@ import { FlameIcon, ShieldIcon } from '../components/Icons'
 import { api } from '../api'
 
 export default function Dashboard() {
-  const [data,        setData]        = useState(null)
-  const [error,       setError]       = useState('')
-  const [quickAdd,    setQuickAdd]    = useState(false)
+  const [data,          setData]          = useState(null)
+  const [recurringOccs, setRecurringOccs] = useState([])
+  const [error,         setError]         = useState('')
+  const [quickAdd,      setQuickAdd]      = useState(false)
 
-  const load = () => api.dashboard().then(setData).catch(e => setError(e.message))
+  const load = () => {
+    api.dashboard().then(setData).catch(e => setError(e.message))
+    api.recurringToday().then(setRecurringOccs).catch(() => {})
+  }
   useEffect(() => { load() }, [])
 
-  const createTask   = (p)  => api.createTask(p).then(load)
-  const completeTask = (id) => api.completeTask(id).then(load)
+  const createTask        = (p)  => api.createTask(p).then(load)
+  const completeTask      = (id) => api.completeTask(id).then(load)
+  const completeRecurring = (id) => api.completeOccurrence(id).then(() =>
+    api.recurringToday().then(setRecurringOccs)
+  )
 
   /* ── loading / error ── */
   if (error) return (
@@ -102,6 +109,63 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
+          {/* ── Recurring today ── */}
+          {recurringOccs.length > 0 && (
+            <div className="glass p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-secondary-c">
+                  ↺ Routines today
+                  <span className="ml-2 chip-accent rounded-full px-2 py-0.5 text-[13px] normal-case font-bold">
+                    {recurringOccs.length}
+                  </span>
+                </p>
+                <Link to="/recurring"
+                      className="text-xs font-semibold transition hover:opacity-80"
+                      style={{ color: 'var(--accent-purple)' }}>
+                  manage →
+                </Link>
+              </div>
+              <div className="grid gap-2">
+                {recurringOccs.map(occ => (
+                  <div key={occ.id}
+                       className="glass rounded-xl overflow-hidden p-3 transition"
+                       style={{ borderRadius: '14px' }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm text-primary-c"
+                                style={{ overflowWrap: 'anywhere' }}>
+                            {occ.template_title}
+                          </span>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[13px] font-bold uppercase ${
+                            occ.status === 'completed' ? 'chip-success'
+                            : occ.status === 'missed'  ? 'chip-danger'
+                            : 'chip-accent'
+                          }`}>
+                            {occ.status === 'completed' ? 'done' : occ.status === 'missed' ? 'missed' : 'pending'}
+                          </span>
+                        </div>
+                        {occ.template_description && (
+                          <p className="mt-0.5 text-xs text-secondary-c">
+                            {occ.template_description}
+                          </p>
+                        )}
+                      </div>
+                      {occ.status === 'pending' && (
+                        <button
+                          onClick={() => completeRecurring(occ.id)}
+                          className="btn-accent shrink-0 flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold text-white"
+                        >
+                          ✔ Done
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── BLOCK 2: Timelines ── */}
           <div className="glass p-4">

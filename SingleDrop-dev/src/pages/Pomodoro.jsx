@@ -36,55 +36,6 @@ const fmtDatetime = (iso) => {
 /* ─────────────────────────────────────────────────────────────
    SOUND FILES  (place in public/assets/sounds/)
 ───────────────────────────────────────────────────────────── */
-const SOUNDS = [
-  { key: 'white-noise', label: 'White Noise' },
-  { key: 'brown-noise', label: 'Brown Noise' },
-  { key: 'rain',        label: 'Rain'        },
-  { key: 'cafe',        label: 'Café'        },
-  { key: 'street',      label: 'Street'      },
-  { key: 'library',     label: 'Library'     },
-  { key: 'blue-noise',  label: 'Blue Noise'  },
-]
-
-function useSoundEngine() {
-  const audioRef = useRef(null)
-  const [active,  setActive]  = useState(null)
-  const [volume,  setVolState] = useState(0.45)
-
-  const stop = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = 0
-      audioRef.current = null
-    }
-    setActive(null)
-  }, [])
-
-  const play = useCallback((key) => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current = null
-    }
-    const audio = new Audio(`/assets/sounds/${key}.mp3`)
-    audio.loop   = true
-    audio.volume = volume
-    audio.play().catch(err => console.warn('Audio play blocked:', err))
-    audioRef.current = audio
-    setActive(key)
-  }, [volume])
-
-  const toggle = (key) => (active === key ? stop() : play(key))
-
-  const setVolume = (v) => {
-    setVolState(v)
-    if (audioRef.current) audioRef.current.volume = v
-  }
-
-  useEffect(() => () => stop(), [])
-
-  return { active, volume, toggle, stop, setVolume }
-}
-
 /* ─────────────────────────────────────────────────────────────
    REFLECTION MODAL
 ───────────────────────────────────────────────────────────── */
@@ -244,9 +195,6 @@ export default function PomodoroPage() {
   const [stats,       setStats]         = useState(null)
   const [quickAdd,    setQuickAdd]      = useState(false)
   const [busy,        setBusy]          = useState(false)
-
-  /* ── music ── */
-  const noise = useSoundEngine()
 
   /* ── computed display elapsed ── */
   const focusElapsed = useMemo(() => {
@@ -534,49 +482,6 @@ export default function PomodoroPage() {
             </div>
           </Section>
 
-          {/* Focus music */}
-          <Section title="Focus Sound">
-            <div className="grid gap-4">
-
-              {/* 7 sound buttons */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                {SOUNDS.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => noise.toggle(key)}
-                    className={`rounded-2xl border p-3 text-left transition ${
-                      noise.active === key
-                        ? 'border-transparent text-white'
-                        : 'btn-ghost-glass border-[var(--glass-border)]'
-                    }`}
-                    style={noise.active === key ? { backgroundImage: 'var(--accent-gradient)' } : undefined}
-                  >
-                    <div className="text-sm font-semibold">{label}</div>
-                    <div className={`mt-0.5 text-xs ${noise.active === key ? 'text-white/70' : 'text-secondary-c'}`}>
-                      {noise.active === key ? '▶ playing' : '○ play'}
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Volume — only show when something is active */}
-              {noise.active && (
-                <div className="flex items-center gap-3 pt-1">
-                  <span className="shrink-0 text-xs text-secondary-c">Volume</span>
-                  <input
-                    type="range" min="0" max="1" step="0.05"
-                    value={noise.volume}
-                    onChange={e => noise.setVolume(+e.target.value)}
-                    className="flex-1 accent-[var(--accent-blue)]"
-                  />
-                  <span className="w-8 shrink-0 text-right text-xs text-secondary-c">
-                    {Math.round(noise.volume * 100)}%
-                  </span>
-                </div>
-              )}
-
-            </div>
-          </Section>
         </div>
 
         {/* ═══ RIGHT — Stats + History ═══ */}

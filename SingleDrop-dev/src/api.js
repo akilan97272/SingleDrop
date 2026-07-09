@@ -1,5 +1,5 @@
-const BASE = import.meta.env.VITE_API_URL || ''
-
+// const BASE = import.meta.env.VITE_API_URL || ''
+const BASE = '';
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -40,4 +40,18 @@ export const api = {
   pomodoroStats:    ()            => request('/api/pomodoro/stats'),
   startPomodoro:    (p)           => request('/api/pomodoro/sessions',                    { method: 'POST',  body: JSON.stringify(p) }),
   completePomodoro: (id, p)       => request(`/api/pomodoro/sessions/${id}/complete`,     { method: 'PATCH', body: JSON.stringify(p) }),
+
+  // Recurring tasks
+  recurringTemplates:   ()          => request('/api/recurring/templates'),
+  createRecurring:      (p)         => request('/api/recurring/templates',                    { method: 'POST',  body: JSON.stringify(p) }),
+  updateRecurring:      (id, p)     => request(`/api/recurring/templates/${id}`,              { method: 'PATCH', body: JSON.stringify(p) }),
+  pauseRecurring:       (id)        => request(`/api/recurring/templates/${id}/pause`,        { method: 'PATCH' }),
+  resumeRecurring:      (id)        => request(`/api/recurring/templates/${id}/resume`,       { method: 'PATCH' }),
+  deleteRecurring:      (id)        => request(`/api/recurring/templates/${id}`,              { method: 'DELETE' }),
+  recurringToday:       ()          => request('/api/recurring/today'),
+  completeOccurrence:   (id)        => request(`/api/recurring/occurrences/${id}/complete`,   { method: 'PATCH' }),
+  missOccurrence:       (id)        => request(`/api/recurring/occurrences/${id}/miss`,       { method: 'PATCH' }),
+  updateOccurrenceNotes:(id, p)     => request(`/api/recurring/occurrences/${id}/notes`,      { method: 'PATCH', body: JSON.stringify(p) }),
+  recurringHistory:     (limit=60)  => request(`/api/recurring/history?limit=${limit}`),
+  recurringHistoryFor:  (tplId)     => request(`/api/recurring/history/${tplId}`),
 }

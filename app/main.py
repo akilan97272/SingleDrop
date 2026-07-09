@@ -14,6 +14,8 @@ from .schemas import (
     NotificationItem, StatsOut,
     TimelineCreate, TimelineTaskCreate, TimelineOut, TimelineTaskOut,
     PomodoroSessionCreate, PomodoroSessionComplete, PomodoroSessionOut, PomodoroStatsOut,
+    RecurringTemplateCreate, RecurringTemplateUpdate, RecurringTemplateOut,
+    OccurrenceNotesUpdate, RecurringOccurrenceOut,
 )
 from .services import (
     today_local, task_label, compute_streak, classify_kind, parse_date,
@@ -151,6 +153,11 @@ def to_timeline_out(doc: dict) -> TimelineOut:
 async def load_all_timelines() -> list[dict]:
     return await tl_coll().find().sort("created_at", 1).to_list(length=500)
 
+
+
+@app.get("/")
+async def home():
+    return FileResponse("app/static/index.html")
 
 # ═══════════════════════════════════════════════════
 #  HEALTH
@@ -453,7 +460,6 @@ async def tracker(days: int = 90):
         ),
     )
 
-@app.get("/{full_path:path}")
 # ═══════════════════════════════════════════════════
 #  POMODORO
 # ═══════════════════════════════════════════════════
@@ -602,6 +608,288 @@ async def pomodoro_stats():
         sessions_completed=sessions_completed,
         most_productive_hour=most_productive,
     )
+
+
+# ═══════════════════════════════════════════════════
+#  RECURRING TASKS
+# ═══════════════════════════════════════════════════
+
+def rec_tpl_coll():
+    return get_db()["recurring_templates"]
+
+def rec_occ_coll():
+    return get_db()["recurring_occurrences"]
+
+# ── recurrence helpers ───────────────────────────
+
+_DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+_DAY_FULL  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+
+def _rule_label(tpl: dict) -> str:
+    rule     = tpl.get('rule', 'daily')
+    interval = int(tpl.get('interval', 1))
+    weekdays = tpl.get('weekdays', [])
+    start    = parse_date(tpl['start_date'])
+    if rule == 'daily':         return 'Every day'
+    if rule == 'weekdays':      return 'Every weekday (Mon–Fri)'
+    if rule == 'weekends':      return 'Weekends only'
+    if rule == 'every_n_days':
+        return f'Every {interval} day{"s" if interval != 1 else ""}'
+    if rule == 'weekly':
+        return f'Every {_DAY_FULL[start.weekday()]}'
+    if rule == 'every_n_weeks':
+        return f'Every {interval} week{"s" if interval != 1 else ""} on {_DAY_FULL[start.weekday()]}'
+    if rule == 'monthly':
+        d = start.day
+        sfx = 'th' if 11 <= d <= 13 else {1:'st',2:'nd',3:'rd'}.get(d % 10, 'th')
+        return f'Monthly on the {d}{sfx}'
+    if rule == 'selected_weekdays':
+        names = ', '.join(_DAY_SHORT[int(w)] for w in sorted(weekdays))
+        return names or 'Selected weekdays'
+    return rule
+
+
+def _should_occur(tpl: dict, today: date) -> bool:
+    if tpl.get('paused'):
+        return False
+    start = parse_date(tpl['start_date'])
+    if today < start:
+        return False
+    rule = tpl.get('rule', 'daily')
+    if rule == 'daily':
+        return True
+    if rule == 'weekdays':
+        return today.weekday() < 5
+    if rule == 'weekends':
+        return today.weekday() >= 5
+    if rule == 'every_n_days':
+        n = max(1, int(tpl.get('interval', 1)))
+        return (today - start).days % n == 0
+    if rule == 'weekly':
+        return today.weekday() == start.weekday() and (today - start).days % 7 == 0
+    if rule == 'every_n_weeks':
+        n = max(1, int(tpl.get('interval', 1)))
+        delta = (today - start).days
+        return delta >= 0 and today.weekday() == start.weekday() and delta % (n * 7) == 0
+    if rule == 'monthly':
+        return today.day == start.day
+    if rule == 'selected_weekdays':
+        return today.weekday() in [int(w) for w in tpl.get('weekdays', [])]
+    return False
+
+
+def _to_tpl_out(tpl: dict, completed: int = 0, missed: int = 0) -> RecurringTemplateOut:
+    return RecurringTemplateOut(
+        id=str(tpl['_id']),
+        title=tpl['title'],
+        description=tpl.get('description', ''),
+        rule=tpl['rule'],
+        rule_label=_rule_label(tpl),
+        interval=int(tpl.get('interval', 1)),
+        weekdays=[int(w) for w in tpl.get('weekdays', [])],
+        start_date=parse_date(tpl['start_date']),
+        paused=bool(tpl.get('paused', False)),
+        created_at=tpl.get('created_at', ''),
+        completed_count=completed,
+        missed_count=missed,
+    )
+
+
+def _to_occ_out(occ: dict) -> RecurringOccurrenceOut:
+    return RecurringOccurrenceOut(
+        id=str(occ['_id']),
+        template_id=str(occ['template_id']),
+        template_title=occ.get('template_title', ''),
+        template_description=occ.get('template_description', ''),
+        date=parse_date(occ['date']),
+        status=occ.get('status', 'pending'),
+        completed_at=occ.get('completed_at'),
+        notes=occ.get('notes'),
+        reflection=occ.get('reflection'),
+        difficulty=occ.get('difficulty'),
+    )
+
+
+async def _auto_miss_past(today: date) -> None:
+    """Mark yesterday's pending recurring occurrences as missed."""
+    yesterday = (today - timedelta(days=1)).isoformat()
+    await rec_occ_coll().update_many(
+        {'date': {'$lt': today.isoformat()}, 'status': 'pending'},
+        {'$set': {'status': 'missed'}},
+    )
+
+
+async def _generate_today(today: date) -> list[dict]:
+    """Idempotent: ensure exactly one occurrence per active template for today."""
+    await _auto_miss_past(today)
+    templates = await rec_tpl_coll().find({'paused': {'$ne': True}}).to_list(10000)
+    result = []
+    for tpl in templates:
+        if not _should_occur(tpl, today):
+            continue
+        existing = await rec_occ_coll().find_one(
+            {'template_id': str(tpl['_id']), 'date': today.isoformat()}
+        )
+        if existing:
+            result.append(existing)
+        else:
+            doc = {
+                '_id': ObjectId(),
+                'template_id': str(tpl['_id']),
+                'template_title': tpl['title'],
+                'template_description': tpl.get('description', ''),
+                'date': today.isoformat(),
+                'status': 'pending',
+                'completed_at': None,
+                'notes': None,
+                'reflection': None,
+                'difficulty': None,
+                'created_at': datetime.utcnow().isoformat(),
+            }
+            await rec_occ_coll().insert_one(doc)
+            result.append(doc)
+    return result
+
+
+# ── TEMPLATE CRUD ────────────────────────────────
+
+@app.get('/api/recurring/templates', response_model=list[RecurringTemplateOut])
+async def list_recurring_templates():
+    tpls = await rec_tpl_coll().find().sort('created_at', 1).to_list(10000)
+    out = []
+    for tpl in tpls:
+        tid = str(tpl['_id'])
+        completed = await rec_occ_coll().count_documents({'template_id': tid, 'status': 'completed'})
+        missed    = await rec_occ_coll().count_documents({'template_id': tid, 'status': 'missed'})
+        out.append(_to_tpl_out(tpl, int(completed), int(missed)))
+    return out
+
+
+@app.post('/api/recurring/templates', response_model=RecurringTemplateOut)
+async def create_recurring_template(payload: RecurringTemplateCreate):
+    doc = {
+        '_id': ObjectId(),
+        'title': payload.title.strip(),
+        'description': payload.description.strip(),
+        'rule': payload.rule,
+        'interval': int(payload.interval),
+        'weekdays': [int(w) for w in payload.weekdays],
+        'start_date': payload.start_date.isoformat(),
+        'paused': False,
+        'created_at': datetime.utcnow().isoformat(),
+    }
+    await rec_tpl_coll().insert_one(doc)
+    return _to_tpl_out(doc)
+
+
+@app.patch('/api/recurring/templates/{tpl_id}', response_model=RecurringTemplateOut)
+async def update_recurring_template(tpl_id: str, payload: RecurringTemplateUpdate):
+    try: oid = ObjectId(tpl_id)
+    except Exception: raise HTTPException(400, 'Invalid id')
+    tpl = await rec_tpl_coll().find_one({'_id': oid})
+    if not tpl: raise HTTPException(404, 'Template not found')
+    upd = {}
+    if payload.title       is not None: upd['title']       = payload.title.strip()
+    if payload.description is not None: upd['description'] = payload.description.strip()
+    if payload.rule        is not None: upd['rule']        = payload.rule
+    if payload.interval    is not None: upd['interval']    = int(payload.interval)
+    if payload.weekdays    is not None: upd['weekdays']    = [int(w) for w in payload.weekdays]
+    if upd:
+        await rec_tpl_coll().update_one({'_id': oid}, {'$set': upd})
+        tpl = await rec_tpl_coll().find_one({'_id': oid})
+    tid = str(tpl['_id'])
+    completed = await rec_occ_coll().count_documents({'template_id': tid, 'status': 'completed'})
+    missed    = await rec_occ_coll().count_documents({'template_id': tid, 'status': 'missed'})
+    return _to_tpl_out(tpl, int(completed), int(missed))
+
+
+@app.patch('/api/recurring/templates/{tpl_id}/pause', response_model=RecurringTemplateOut)
+async def pause_recurring(tpl_id: str):
+    try: oid = ObjectId(tpl_id)
+    except Exception: raise HTTPException(400, 'Invalid id')
+    tpl = await rec_tpl_coll().find_one({'_id': oid})
+    if not tpl: raise HTTPException(404, 'Not found')
+    await rec_tpl_coll().update_one({'_id': oid}, {'$set': {'paused': True}})
+    return _to_tpl_out(await rec_tpl_coll().find_one({'_id': oid}))
+
+
+@app.patch('/api/recurring/templates/{tpl_id}/resume', response_model=RecurringTemplateOut)
+async def resume_recurring(tpl_id: str):
+    try: oid = ObjectId(tpl_id)
+    except Exception: raise HTTPException(400, 'Invalid id')
+    tpl = await rec_tpl_coll().find_one({'_id': oid})
+    if not tpl: raise HTTPException(404, 'Not found')
+    await rec_tpl_coll().update_one({'_id': oid}, {'$set': {'paused': False}})
+    return _to_tpl_out(await rec_tpl_coll().find_one({'_id': oid}))
+
+
+@app.delete('/api/recurring/templates/{tpl_id}', status_code=204)
+async def delete_recurring_template(tpl_id: str):
+    try: oid = ObjectId(tpl_id)
+    except Exception: raise HTTPException(400, 'Invalid id')
+    await rec_tpl_coll().delete_one({'_id': oid})
+    await rec_occ_coll().delete_many({'template_id': tpl_id})
+
+
+# ── OCCURRENCES ──────────────────────────────────
+
+@app.get('/api/recurring/today', response_model=list[RecurringOccurrenceOut])
+async def recurring_today():
+    today = today_local()
+    docs = await _generate_today(today)
+    return [_to_occ_out(d) for d in docs]
+
+
+@app.patch('/api/recurring/occurrences/{occ_id}/complete', response_model=RecurringOccurrenceOut)
+async def complete_recurring(occ_id: str):
+    try: oid = ObjectId(occ_id)
+    except Exception: raise HTTPException(400, 'Invalid id')
+    occ = await rec_occ_coll().find_one({'_id': oid})
+    if not occ: raise HTTPException(404, 'Occurrence not found')
+    await rec_occ_coll().update_one({'_id': oid}, {'$set': {
+        'status': 'completed',
+        'completed_at': datetime.utcnow().isoformat(),
+    }})
+    return _to_occ_out(await rec_occ_coll().find_one({'_id': oid}))
+
+
+@app.patch('/api/recurring/occurrences/{occ_id}/miss', response_model=RecurringOccurrenceOut)
+async def miss_recurring(occ_id: str):
+    try: oid = ObjectId(occ_id)
+    except Exception: raise HTTPException(400, 'Invalid id')
+    occ = await rec_occ_coll().find_one({'_id': oid})
+    if not occ: raise HTTPException(404, 'Occurrence not found')
+    await rec_occ_coll().update_one({'_id': oid}, {'$set': {'status': 'missed'}})
+    return _to_occ_out(await rec_occ_coll().find_one({'_id': oid}))
+
+
+@app.patch('/api/recurring/occurrences/{occ_id}/notes', response_model=RecurringOccurrenceOut)
+async def update_occurrence_notes(occ_id: str, payload: OccurrenceNotesUpdate):
+    try: oid = ObjectId(occ_id)
+    except Exception: raise HTTPException(400, 'Invalid id')
+    upd = {}
+    if payload.notes      is not None: upd['notes']      = payload.notes
+    if payload.reflection is not None: upd['reflection'] = payload.reflection
+    if payload.difficulty is not None: upd['difficulty'] = int(payload.difficulty)
+    if upd:
+        await rec_occ_coll().update_one({'_id': oid}, {'$set': upd})
+    occ = await rec_occ_coll().find_one({'_id': oid})
+    if not occ: raise HTTPException(404, 'Not found')
+    return _to_occ_out(occ)
+
+
+@app.get('/api/recurring/history', response_model=list[RecurringOccurrenceOut])
+async def recurring_history_all(limit: int = 60):
+    docs = await rec_occ_coll().find({'status': {'$ne': 'pending'}}).sort('date', -1).to_list(length=limit)
+    return [_to_occ_out(d) for d in docs]
+
+
+@app.get('/api/recurring/history/{tpl_id}', response_model=list[RecurringOccurrenceOut])
+async def recurring_history_template(tpl_id: str, limit: int = 60):
+    docs = await rec_occ_coll().find(
+        {'template_id': tpl_id}
+    ).sort('date', -1).to_list(length=limit)
+    return [_to_occ_out(d) for d in docs]
 
 
 async def spa_fallback(full_path: str):

@@ -169,3 +169,65 @@ class PomodoroStatsOut(BaseModel):
     average_session: float      # minutes
     sessions_completed: int
     most_productive_hour: Optional[int] = None  # 0–23
+
+
+# ── Recurring Tasks ───────────────────────────────────────────────────────────
+
+RecurrenceRule = Literal[
+    'daily', 'weekdays', 'weekends',
+    'every_n_days', 'weekly', 'every_n_weeks',
+    'monthly', 'selected_weekdays',
+]
+
+OccurrenceStatus = Literal['pending', 'completed', 'missed']
+
+
+class RecurringTemplateCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default='', max_length=500)
+    rule: RecurrenceRule
+    interval: int = Field(default=1, ge=1, le=365)  # for every_n_days / every_n_weeks
+    weekdays: list[int] = Field(default=[])          # 0=Mon … 6=Sun for selected_weekdays
+    start_date: date
+
+
+class RecurringTemplateUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    rule: Optional[RecurrenceRule] = None
+    interval: Optional[int] = None
+    weekdays: Optional[list[int]] = None
+
+
+class RecurringTemplateOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    rule: str
+    rule_label: str
+    interval: int
+    weekdays: list[int]
+    start_date: date
+    paused: bool
+    created_at: str
+    completed_count: int = 0
+    missed_count: int = 0
+
+
+class OccurrenceNotesUpdate(BaseModel):
+    notes: Optional[str] = None
+    reflection: Optional[str] = None
+    difficulty: Optional[int] = None  # 1–5
+
+
+class RecurringOccurrenceOut(BaseModel):
+    id: str
+    template_id: str
+    template_title: str
+    template_description: str
+    date: date
+    status: OccurrenceStatus
+    completed_at: Optional[str] = None
+    notes: Optional[str] = None
+    reflection: Optional[str] = None
+    difficulty: Optional[int] = None

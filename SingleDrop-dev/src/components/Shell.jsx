@@ -5,7 +5,7 @@ import { api } from '../api'
 import {
   HomeIcon, ListIcon, TrackerIcon, TimelineIcon,
   FutureIcon, DeprecatedIcon, PlanIcon,
-  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon, TimerIcon, HelpIcon,
+  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon, TimerIcon, HelpIcon, RecurringIcon,
 } from './Icons'
 
 /* ── theme meta ── */
@@ -17,17 +17,18 @@ const THEME_META = {
 
 /* ── nav items ── */
 const NAV = [
-  { to: '/',              Icon: HomeIcon,       label: 'Dashboard'    },
-  { to: '/tasks',         Icon: ListIcon,       label: 'Tasks'        },
-  { to: '/tracker',       Icon: TrackerIcon,    label: 'Tracker'      },
-  { to: '/timeline',      Icon: TimelineIcon,   label: 'Timeline'     },
-  { to: '/pomodoro',      Icon: TimerIcon,      label: 'Pomodoro'     },
-  { to: '/future-plans',  Icon: FutureIcon,     label: 'Future Plans' },
-  { to: '/deprecated',    Icon: DeprecatedIcon, label: 'Deprecated'   },
-  { to: '/plan-tomorrow', Icon: PlanIcon,       label: 'Plan Tomorrow'},
+  { to: '/',              Icon: HomeIcon,       label: 'Dashboard'       },
+  { to: '/tasks',         Icon: ListIcon,       label: 'Tasks'           },
+  { to: '/tracker',       Icon: TrackerIcon,    label: 'Tracker'         },
+  { to: '/timeline',      Icon: TimelineIcon,   label: 'Timeline'        },
+  { to: '/recurring',     Icon: RecurringIcon,  label: 'Recurring'       },
+  { to: '/pomodoro',      Icon: TimerIcon,      label: 'Pomodoro'        },
+  { to: '/future-plans',  Icon: FutureIcon,     label: 'Future Plans'    },
+  { to: '/deprecated',    Icon: DeprecatedIcon, label: 'Deprecated'      },
+  { to: '/plan-tomorrow', Icon: PlanIcon,       label: 'Plan Tomorrow'   },
 ]
 const DOCK_LEFT  = ['/', '/tasks']
-const DOCK_RIGHT = ['/tracker', '/pomodoro']
+const DOCK_RIGHT = ['/recurring', '/tracker']
 
 /* ── sub-components ── */
 
@@ -98,7 +99,7 @@ function NavLink({ to, Icon, label, active }) {
   return (
     <Link
       to={to}
-      className={`group flex h-8 items-center gap-0 overflow-hidden rounded-full border px-2 transition-all duration-700 hover:gap-1.5 hover:px-3 ${
+      className={`group flex h-8 items-center gap-0 overflow-hidden rounded-full border px-2 transition-all duration-200 hover:gap-1.5 hover:px-3 ${
         active
           ? 'border-transparent text-white'
           : 'btn-ghost-glass border-[var(--glass-border)] text-secondary-c hover:text-primary-c'
@@ -106,7 +107,7 @@ function NavLink({ to, Icon, label, active }) {
       style={active ? { backgroundImage: 'var(--accent-gradient)' } : undefined}
     >
       <Icon className="shrink-0" />
-      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-700 group-hover:max-w-[120px] group-hover:opacity-100">
+      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover:max-w-[120px] group-hover:opacity-100">
         {label}
       </span>
     </Link>
