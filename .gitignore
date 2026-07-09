@@ -1,6 +1,6 @@
 venv/*
-static/*
-dist/*
+static/
+dist/
 .env
 __pycache__/*
 *.log
