@@ -12,10 +12,10 @@ from .db import get_db
 from .schemas import (
     TaskCreate, TaskOut, DashboardOut, TrackerOut, DailyPoint,
     NotificationItem, StatsOut,
-    TimelineCreate, TimelineTaskCreate, TimelineOut, TimelineTaskOut,
     PomodoroSessionCreate, PomodoroSessionComplete, PomodoroSessionOut, PomodoroStatsOut,
     RecurringTemplateCreate, RecurringTemplateUpdate, RecurringTemplateOut,
     OccurrenceNotesUpdate, RecurringOccurrenceOut,
+    TagCreate, TagOut,
 )
 from .services import (
     today_local, task_label, compute_streak, classify_kind, parse_date,
@@ -63,6 +63,7 @@ def to_task_out(doc: dict) -> TaskOut:
         status=doc["status"],
         kind=classify_kind(planned, current),
         label=task_label(doc),
+        tags=[str(t) for t in (doc.get("tags") or [])],
     )
 
 
@@ -89,319 +90,6 @@ async def load_all_tasks() -> list[dict]:
 # ═══════════════════════════════════════════════════
 #  TIMELINE helpers
 # ═══════════════════════════════════════════════════
-
-def tl_coll():
-    return get_db()["timelines"]
-
-
-def _tl_task_status(start: date, end: date, current: date) -> str:
-    if current < start:
-        return "upcoming"
-    elif current > end:
-        return "completed"
-    return "active"
-
-
-def _tl_task_progress(start: date, end: date, current: date) -> float:
-    total = max((end - start).days + 1, 1)
-    elapsed = min(max((current - start).days + 1, 0), total)
-    return round(elapsed / total, 4)
-
-
-def to_timeline_out(doc: dict) -> TimelineOut:
-    current = today_local()
-    raw_tasks = doc.get("tasks", [])
-    tasks_out: list[TimelineTaskOut] = []
-    is_active_today = False
-    dates: list[date] = []
-
-    for t in raw_tasks:
-        s = parse_date(t["start_date"])
-        e = parse_date(t["end_date"])
-        status = _tl_task_status(s, e, current)
-        days_total = max((e - s).days + 1, 1)
-        days_elapsed = min(max((current - s).days + 1, 0), days_total)
-        is_today = s <= current <= e
-        if is_today:
-            is_active_today = True
-        dates += [s, e]
-        tasks_out.append(TimelineTaskOut(
-            id=str(t["_id"]),
-            title=t["title"],
-            description=t.get("description", ""),
-            start_date=s,
-            end_date=e,
-            status=status,
-            progress=_tl_task_progress(s, e, current),
-            days_total=days_total,
-            days_elapsed=days_elapsed,
-            is_today=is_today,
-        ))
-
-    return TimelineOut(
-        id=str(doc["_id"]),
-        name=doc["name"],
-        color=doc.get("color", "blue"),
-        created_at=parse_date(doc["created_at"]),
-        tasks=tasks_out,
-        is_active_today=is_active_today,
-        overall_start=min(dates) if dates else None,
-        overall_end=max(dates) if dates else None,
-    )
-
-
-async def load_all_timelines() -> list[dict]:
-    return await tl_coll().find().sort("created_at", 1).to_list(length=500)
-
-
-
-@app.get("/")
-async def home():
-    return FileResponse("app/static/index.html")
-
-# ═══════════════════════════════════════════════════
-#  HEALTH
-# ═══════════════════════════════════════════════════
-
-@app.get("/api/health")
-async def health():
-    return {"ok": True, "service": "single-drop"}
-
-
-# ═══════════════════════════════════════════════════
-#  DASHBOARD
-# ═══════════════════════════════════════════════════
-
-@app.get("/api/dashboard", response_model=DashboardOut)
-async def dashboard():
-    docs = await load_all_tasks()
-    current = today_local()
-    tomorrow = current + timedelta(days=1)
-
-    tasks = [to_task_out(d) for d in docs]
-    today_tasks     = [t for t in tasks if t.planned_date == current and t.status == "planned"]
-    tomorrow_tasks  = [t for t in tasks if t.planned_date == tomorrow and t.status == "planned"]
-    future_plans    = [t for t in tasks if t.planned_date > tomorrow and t.status == "planned"]
-    completed_today = [t for t in tasks if t.planned_date == current and t.status in ("completed", "completed_late")]
-    missed_tasks    = [t for t in tasks if t.status == "missed"]
-
-    completed_days = [t.completed_date for t in tasks if t.status == "completed" and t.completed_date]
-    streak, shield_used = compute_streak(completed_days)
-
-    tl_docs = await load_all_timelines()
-    timelines = [to_timeline_out(d) for d in tl_docs]
-
-    notifications: list[NotificationItem] = []
-    if tomorrow_tasks:
-        notifications.append(NotificationItem(
-            type="tomorrow",
-            message=f"{len(tomorrow_tasks)} task(s) lined up for tomorrow's agenda.",
-        ))
-    for plan in future_plans:
-        d = days_away(plan.planned_date, current)
-        notifications.append(NotificationItem(
-            type="future_plan",
-            message=f"Future plan: '{plan.title}' is {d} day{'s' if d != 1 else ''} away ({plan.planned_date.isoformat()}).",
-        ))
-    for tl in timelines:
-        active = [t for t in tl.tasks if t.is_today]
-        if active:
-            notifications.append(NotificationItem(
-                type="timeline",
-                message=f"Timeline '{tl.name}': {active[0].title} is active today.",
-            ))
-    if missed_tasks:
-        notifications.append(NotificationItem(
-            type="missed",
-            message=f"{len(missed_tasks)} task(s) sitting in deprecated. Complete or disband them.",
-        ))
-    if not notifications:
-        notifications.append(NotificationItem(type="info", message="Nothing pending. Clean slate energy."))
-
-    return DashboardOut(
-        today=today_tasks,
-        tomorrow=tomorrow_tasks,
-        future_plans=future_plans,
-        completed_today=completed_today,
-        missed_count=len(missed_tasks),
-        quote=random_quote(),
-        streak=streak,
-        shield_used=shield_used,
-        notifications=notifications,
-        mindset_note=random_mindset(),
-        day_name=DAY_NAMES[current.weekday()],
-        today_date=current,
-        timelines=timelines,
-    )
-
-
-@app.get("/api/quote")
-async def quote():
-    return {"quote": random_quote()}
-
-
-@app.get("/api/notifications")
-async def notifications():
-    data = await dashboard()
-    return {"notifications": [jsonable_encoder(n) for n in data.notifications], "mindset_note": data.mindset_note}
-
-
-# ═══════════════════════════════════════════════════
-#  TASKS CRUD
-# ═══════════════════════════════════════════════════
-
-@app.get("/api/tasks")
-async def list_tasks(status: str | None = None):
-    docs = await load_all_tasks()
-    if status:
-        docs = [d for d in docs if d["status"] == status]
-    return [jsonable_encoder(to_task_out(d)) for d in docs]
-
-
-@app.get("/api/future-plans")
-async def future_plans():
-    docs = await load_all_tasks()
-    current = today_local()
-    tomorrow = current + timedelta(days=1)
-    docs = [d for d in docs if d["status"] == "planned" and parse_date(d["planned_date"]) > tomorrow]
-    return [jsonable_encoder(to_task_out(d)) for d in docs]
-
-
-@app.get("/api/missed")
-async def missed_tasks():
-    docs = await load_all_tasks()
-    return [jsonable_encoder(to_task_out(d)) for d in docs if d["status"] == "missed"]
-
-
-@app.post("/api/tasks", response_model=TaskOut)
-async def create_task(payload: TaskCreate):
-    current = today_local()
-    doc = {
-        "_id": ObjectId(),
-        "title": payload.title.strip(),
-        "description": payload.description.strip(),
-        "planned_date": payload.planned_date.isoformat(),
-        "created_at": current.isoformat(),
-        "status": "planned",
-        "completed_date": None,
-        "missed_date": None,
-        "disbanded_date": None,
-        "missed_reason": None,
-    }
-    await coll().insert_one(doc)
-    return to_task_out(doc)
-
-
-async def _get_task(task_id: str) -> dict:
-    try:
-        oid = ObjectId(task_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid task id")
-    doc = await coll().find_one({"_id": oid})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return doc
-
-
-@app.patch("/api/tasks/{task_id}/complete", response_model=TaskOut)
-async def complete_task(task_id: str):
-    doc = await _get_task(task_id)
-    if doc["status"] != "planned":
-        raise HTTPException(status_code=400, detail="Only planned tasks can be completed directly")
-    current = today_local()
-    await coll().update_one({"_id": doc["_id"]}, {"$set": {"status": "completed", "completed_date": current.isoformat()}})
-    return to_task_out(await coll().find_one({"_id": doc["_id"]}))
-
-
-@app.patch("/api/tasks/{task_id}/complete-late", response_model=TaskOut)
-async def complete_late_task(task_id: str):
-    doc = await _get_task(task_id)
-    if doc["status"] != "missed":
-        raise HTTPException(status_code=400, detail="Only missed tasks can be completed late")
-    current = today_local()
-    await coll().update_one({"_id": doc["_id"]}, {"$set": {"status": "completed_late", "completed_date": current.isoformat()}})
-    return to_task_out(await coll().find_one({"_id": doc["_id"]}))
-
-
-@app.patch("/api/tasks/{task_id}/disband", response_model=TaskOut)
-async def disband_task(task_id: str):
-    doc = await _get_task(task_id)
-    if doc["status"] != "missed":
-        raise HTTPException(status_code=400, detail="Only missed tasks can be disbanded")
-    current = today_local()
-    await coll().update_one({"_id": doc["_id"]}, {"$set": {"status": "disbanded", "disbanded_date": current.isoformat()}})
-    return to_task_out(await coll().find_one({"_id": doc["_id"]}))
-
-
-# ═══════════════════════════════════════════════════
-#  TIMELINES CRUD
-# ═══════════════════════════════════════════════════
-
-@app.get("/api/timelines")
-async def list_timelines():
-    docs = await load_all_timelines()
-    return [jsonable_encoder(to_timeline_out(d)) for d in docs]
-
-
-@app.post("/api/timelines", response_model=TimelineOut)
-async def create_timeline(payload: TimelineCreate):
-    current = today_local()
-    doc = {
-        "_id": ObjectId(),
-        "name": payload.name.strip(),
-        "color": payload.color,
-        "created_at": current.isoformat(),
-        "tasks": [],
-    }
-    await tl_coll().insert_one(doc)
-    return to_timeline_out(doc)
-
-
-async def _get_timeline(tl_id: str) -> dict:
-    try:
-        oid = ObjectId(tl_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid timeline id")
-    doc = await tl_coll().find_one({"_id": oid})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Timeline not found")
-    return doc
-
-
-@app.delete("/api/timelines/{tl_id}", status_code=204)
-async def delete_timeline(tl_id: str):
-    doc = await _get_timeline(tl_id)
-    await tl_coll().delete_one({"_id": doc["_id"]})
-
-
-@app.post("/api/timelines/{tl_id}/tasks", response_model=TimelineOut)
-async def add_timeline_task(tl_id: str, payload: TimelineTaskCreate):
-    doc = await _get_timeline(tl_id)
-    if payload.end_date < payload.start_date:
-        raise HTTPException(status_code=400, detail="end_date must be >= start_date")
-    task = {
-        "_id": ObjectId(),
-        "title": payload.title.strip(),
-        "description": payload.description.strip(),
-        "start_date": payload.start_date.isoformat(),
-        "end_date": payload.end_date.isoformat(),
-    }
-    await tl_coll().update_one({"_id": doc["_id"]}, {"$push": {"tasks": task}})
-    updated = await tl_coll().find_one({"_id": doc["_id"]})
-    return to_timeline_out(updated)
-
-
-@app.delete("/api/timelines/{tl_id}/tasks/{task_id}", response_model=TimelineOut)
-async def delete_timeline_task(tl_id: str, task_id: str):
-    doc = await _get_timeline(tl_id)
-    try:
-        task_oid = ObjectId(task_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid task id")
-    await tl_coll().update_one({"_id": doc["_id"]}, {"$pull": {"tasks": {"_id": task_oid}}})
-    updated = await tl_coll().find_one({"_id": doc["_id"]})
-    return to_timeline_out(updated)
-
 
 # ═══════════════════════════════════════════════════
 #  TRACKER
@@ -890,6 +578,154 @@ async def recurring_history_template(tpl_id: str, limit: int = 60):
         {'template_id': tpl_id}
     ).sort('date', -1).to_list(length=limit)
     return [_to_occ_out(d) for d in docs]
+
+
+
+# ═══════════════════════════════════════════════════
+#  TAGS
+# ═══════════════════════════════════════════════════
+
+def tag_coll():
+    return get_db()["tags"]
+
+
+def _to_tag_out(doc: dict) -> TagOut:
+    return TagOut(id=str(doc["_id"]), name=doc["name"], color=doc.get("color", "blue"))
+
+
+@app.get("/api/tags")
+async def list_tags():
+    docs = await tag_coll().find().sort("name", 1).to_list(length=1000)
+    return [_to_tag_out(d).model_dump() for d in docs]
+
+
+@app.post("/api/tags", response_model=TagOut)
+async def create_tag(payload: TagCreate):
+    existing = await tag_coll().find_one(
+        {"name": {"$regex": f"^{payload.name.strip()}$", "$options": "i"}}
+    )
+    if existing:
+        return _to_tag_out(existing)
+    doc = {"_id": ObjectId(), "name": payload.name.strip(), "color": payload.color}
+    await tag_coll().insert_one(doc)
+    return _to_tag_out(doc)
+
+
+@app.delete("/api/tags/{tag_id}", status_code=204)
+async def delete_tag(tag_id: str):
+    try:
+        oid = ObjectId(tag_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    await tag_coll().delete_one({"_id": oid})
+    await coll().update_many({}, {"$pull": {"tags": tag_id}})
+
+
+@app.patch("/api/tasks/{task_id}/tags")
+async def set_task_tags(task_id: str, tag_ids: list[str]):
+    try:
+        oid = ObjectId(task_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    await coll().update_one({"_id": oid}, {"$set": {"tags": tag_ids}})
+    return {"id": task_id, "tags": tag_ids}
+
+
+@app.patch("/api/pomodoro/sessions/{session_id}/tag-focus")
+async def set_pomodoro_tag_focus(session_id: str, tag_id: str, focus_minutes: float):
+    try:
+        oid = ObjectId(session_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    session = await pomo_coll().find_one({"_id": oid})
+    if not session:
+        raise HTTPException(404, "Session not found")
+    await pomo_coll().update_one(
+        {"_id": oid},
+        {"$set": {"focused_tag_id": tag_id, "focused_tag_minutes": float(focus_minutes)}}
+    )
+    return {"ok": True}
+
+
+@app.get("/api/tags/analytics")
+async def tag_analytics():
+    tags     = await tag_coll().find().sort("name", 1).to_list(length=1000)
+    sessions = await pomo_coll().find(
+        {"end_time": {"$ne": None}, "focused_tag_id": {"$exists": True}}
+    ).to_list(length=50000)
+    tasks_all = await coll().find(
+        {"status": {"$in": ["completed", "completed_late"]}}
+    ).to_list(length=50000)
+
+    result = []
+    for tag in tags:
+        tid         = str(tag["_id"])
+        tag_sessions = [s for s in sessions if s.get("focused_tag_id") == tid]
+        total_focus  = float(sum(float(s.get("focused_tag_minutes") or 0) for s in tag_sessions))
+        n_sessions   = len(tag_sessions)
+        avg_session  = round(total_focus / n_sessions, 1) if n_sessions else 0.0
+        tag_tasks    = [t for t in tasks_all if tid in (t.get("tags") or [])]
+        result.append({
+            "id":                   tid,
+            "name":                 tag["name"],
+            "color":                tag.get("color", "blue"),
+            "total_focus_minutes":  round(total_focus, 1),
+            "completed_tasks":      int(len(tag_tasks)),
+            "avg_session_minutes":  avg_session,
+            "total_sessions":       n_sessions,
+        })
+    return result
+
+
+@app.get("/api/tags/{tag_id}/detail")
+async def tag_detail(tag_id: str):
+    try:
+        oid = ObjectId(tag_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    tag = await tag_coll().find_one({"_id": oid})
+    if not tag:
+        raise HTTPException(404, "Tag not found")
+
+    sessions = await pomo_coll().find(
+        {"end_time": {"$ne": None}, "focused_tag_id": tag_id}
+    ).sort("start_time", -1).to_list(length=1000)
+
+    tasks_all = await coll().find(
+        {"status": {"$in": ["completed", "completed_late"]}, "tags": tag_id}
+    ).to_list(length=5000)
+
+    total_focus = float(sum(float(s.get("focused_tag_minutes") or 0) for s in sessions))
+    n_sessions  = len(sessions)
+    avg_session = round(total_focus / n_sessions, 1) if n_sessions else 0.0
+
+    session_list = [
+        {
+            "date":          s.get("start_time", "")[:10],
+            "focus_minutes": round(float(s.get("focused_tag_minutes") or 0), 1),
+            "reflection":    (s.get("reflection") or {}).get("focus_score"),
+            "difficulty":    (s.get("reflection") or {}).get("energy_score"),
+        }
+        for s in sessions
+    ]
+
+    task_list = [
+        {
+            "title":        t.get("title", ""),
+            "completed_at": t.get("completed_date", ""),
+        }
+        for t in tasks_all
+    ]
+
+    return {
+        "tag":                  {"id": tag_id, "name": tag["name"], "color": tag.get("color","blue")},
+        "total_focus_minutes":  round(total_focus, 1),
+        "completed_tasks":      int(len(task_list)),
+        "total_sessions":       n_sessions,
+        "avg_session_minutes":  avg_session,
+        "sessions":             session_list,
+        "tasks":                task_list,
+    }
 
 
 async def spa_fallback(full_path: str):

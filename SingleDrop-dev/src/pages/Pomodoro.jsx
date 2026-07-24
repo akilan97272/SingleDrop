@@ -3,6 +3,7 @@ import Shell from '../components/Shell'
 import QuickAddModal from '../components/QuickAddModal'
 import { PlayIcon, PauseIcon, SkipIcon, StopIcon, TimerIcon } from '../components/Icons'
 import { api } from '../api'
+import TagChip from '../components/TagChip'
 
 /* ─────────────────────────────────────────────────────────────
    HELPERS
@@ -164,8 +165,11 @@ export default function PomodoroPage() {
   const [workMins,  setWorkMins]  = useState(25)
   const [breakMins, setBreakMins] = useState(5)
   const [cycles,    setCycles]    = useState(4)
-  const [linkedTask, setLinkedTask] = useState('')
-  const [todayTasks, setTodayTasks] = useState([])
+  const [linkedTask,    setLinkedTask]    = useState('')
+  const [todayTasks,    setTodayTasks]    = useState([])
+  const [tagMap,        setTagMap]        = useState({})
+  const [tagModal,      setTagModal]      = useState(false)
+  const [pendingTask,   setPendingTask]   = useState(null)
 
   /* ── timer state ── */
   const [phase,      setPhase]      = useState('idle') // idle | work | break
@@ -216,6 +220,7 @@ export default function PomodoroPage() {
 
   useEffect(() => {
     loadData()
+    api.tags().then(ts => setTagMap(Object.fromEntries(ts.map(t => [t.id, t])))).catch(() => {})
     api.tasks('planned').then(all => {
       const today = new Date().toISOString().slice(0, 10)
       setTodayTasks(all.filter(t => t.planned_date === today))
@@ -268,7 +273,7 @@ export default function PomodoroPage() {
   }, [running])
 
   /* ── actions ── */
-  const startSession = async () => {
+  const _doStart = async (focusTagId) => {
     setBusy(true)
     try {
       const res = await api.startPomodoro({
@@ -288,11 +293,30 @@ export default function PomodoroPage() {
       phaseRef.current = 'work'
       setTimeLeft(workMins * 60)
       setRunning(true)
+      if (focusTagId) {
+        api.setPomoTagFocus?.(res.id, focusTagId, configRef.current.workMins).catch(() => {})
+      }
     } catch (e) {
       console.error(e)
     } finally {
       setBusy(false)
     }
+  }
+
+  const startSession = async () => {
+    const task = todayTasks.find(t => t.id === linkedTask)
+    if (task && (task.tags || []).length > 1) {
+      setPendingTask(task)
+      setTagModal(true)
+    } else {
+      await _doStart(null)
+    }
+  }
+
+  const confirmTag = async (tagId) => {
+    setTagModal(false)
+    setPendingTask(null)
+    await _doStart(tagId)
   }
 
   const endSession = (wasInterrupted = true) => {
@@ -571,6 +595,33 @@ export default function PomodoroPage() {
 
       {showReflect && <ReflectionModal onSave={saveReflection} onSkip={skipReflection} />}
       <QuickAddModal open={quickAdd} onClose={() => setQuickAdd(false)} onCreate={p => api.createTask(p)} />
+
+      {tagModal && pendingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+             style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)' }}>
+          <div className="glass-strong w-full max-w-sm p-6">
+            <h2 className="font-black text-lg text-primary-c mb-1">What are you focusing on?</h2>
+            <p className="text-sm text-secondary-c mb-4">
+              Task: <span className="font-semibold text-primary-c">{pendingTask.title}</span>
+            </p>
+            <div className="grid gap-2">
+              {(pendingTask.tags || []).map(tid => {
+                const tag = tagMap[tid]
+                return (
+                  <button key={tid} onClick={() => confirmTag(tid)}
+                    className="btn-ghost-glass rounded-2xl border border-[var(--glass-border)] px-4 py-3 text-left hover:brightness-110 transition">
+                    {tag ? <TagChip tag={tag} /> : <span className="font-semibold text-primary-c">{tid}</span>}
+                  </button>
+                )
+              })}
+              <button onClick={() => confirmTag(null)}
+                className="mt-1 text-xs text-secondary-c hover:text-primary-c transition py-2">
+                Skip — focus on the whole task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Shell>
   )
 }

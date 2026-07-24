@@ -3,9 +3,9 @@ import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { api } from '../api'
 import {
-  HomeIcon, ListIcon, TrackerIcon, TimelineIcon,
+  HomeIcon, ListIcon, TrackerIcon,
   FutureIcon, DeprecatedIcon, PlanIcon,
-  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon, TimerIcon, HelpIcon, RecurringIcon,
+  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon, TimerIcon, HelpIcon, RecurringIcon, TagIcon,
 } from './Icons'
 
 /* ── theme meta ── */
@@ -20,8 +20,8 @@ const NAV = [
   { to: '/',              Icon: HomeIcon,       label: 'Dashboard'       },
   { to: '/tasks',         Icon: ListIcon,       label: 'Tasks'           },
   { to: '/tracker',       Icon: TrackerIcon,    label: 'Tracker'         },
-  { to: '/timeline',      Icon: TimelineIcon,   label: 'Timeline'        },
   { to: '/recurring',     Icon: RecurringIcon,  label: 'Recurring'       },
+  { to: '/tags',          Icon: TagIcon,         label: 'Tags'            },
   { to: '/pomodoro',      Icon: TimerIcon,      label: 'Pomodoro'        },
   { to: '/future-plans',  Icon: FutureIcon,     label: 'Future Plans'    },
   { to: '/deprecated',    Icon: DeprecatedIcon, label: 'Deprecated'      },

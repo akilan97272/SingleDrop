@@ -4,7 +4,6 @@ import Shell from '../components/Shell'
 import SectionCard from '../components/SectionCard'
 import TaskComposer from '../components/TaskComposer'
 import TaskList from '../components/TaskList'
-import TimelineBlock from '../components/TimelineBlock'
 import QuickAddModal from '../components/QuickAddModal'
 import { FlameIcon, ShieldIcon } from '../components/Icons'
 import { api } from '../api'
@@ -167,20 +166,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── BLOCK 2: Timelines ── */}
-          <div className="glass p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-widest text-secondary-c">
-                Active Timelines
-              </p>
-              <Link to="/timeline"
-                    className="text-xs font-semibold transition hover:opacity-80"
-                    style={{ color: 'var(--accent-cyan)' }}>
-                manage →
-              </Link>
-            </div>
-            <TimelineBlock timelines={data.timelines} />
-          </div>
+
 
         </div>
 

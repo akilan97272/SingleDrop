@@ -54,4 +54,13 @@ export const api = {
   updateOccurrenceNotes:(id, p)     => request(`/api/recurring/occurrences/${id}/notes`,      { method: 'PATCH', body: JSON.stringify(p) }),
   recurringHistory:     (limit=60)  => request(`/api/recurring/history?limit=${limit}`),
   recurringHistoryFor:  (tplId)     => request(`/api/recurring/history/${tplId}`),
+
+  // Tags
+  tags:            ()          => request('/api/tags'),
+  createTag:       (p)         => request('/api/tags',                        { method: 'POST',  body: JSON.stringify(p) }),
+  deleteTag:       (id)        => request(`/api/tags/${id}`,                  { method: 'DELETE' }),
+  setTaskTags:     (tid, ids)  => request(`/api/tasks/${tid}/tags`,           { method: 'PATCH', body: JSON.stringify(ids) }),
+  tagAnalytics:    ()          => request('/api/tags/analytics'),
+  tagDetail:       (id)        => request(`/api/tags/${id}/detail`),
+  setPomoTagFocus: (sid,tid,m) => request(`/api/pomodoro/sessions/${sid}/tag-focus?tag_id=${tid}&focus_minutes=${m}`, { method: 'PATCH' }),
 }

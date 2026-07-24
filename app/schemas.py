@@ -5,16 +5,13 @@ from typing import Optional, Literal, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 TaskStatus = Literal["planned", "completed", "missed", "completed_late", "disbanded"]
-TimelineTaskStatus = Literal["upcoming", "active", "completed"]
-TIMELINE_COLORS = Literal["blue", "purple", "cyan", "pink", "green", "orange"]
-
-
 # ── Task ──────────────────────────────────────────────────────────────────────
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
     planned_date: date
+    tags: list[str] = Field(default=[])
 
 
 class TaskOut(BaseModel):
@@ -32,50 +29,13 @@ class TaskOut(BaseModel):
     status: TaskStatus
     kind: Literal["today", "tomorrow", "future", "overdue"]
     label: str
-
-
-# ── Timeline ──────────────────────────────────────────────────────────────────
-
-class TimelineTaskCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=120)
-    description: str = Field(default="", max_length=500)
-    start_date: date
-    end_date: date  # same as start_date for a single-day entry
-
-
-class TimelineCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=80)
-    color: TIMELINE_COLORS = "blue"
-
-
-class TimelineTaskOut(BaseModel):
-    id: str
-    title: str
-    description: str
-    start_date: date
-    end_date: date
-    status: TimelineTaskStatus
-    progress: float       # 0.0 → 1.0
-    days_total: int
-    days_elapsed: int
-    is_today: bool        # true if today falls within the range
-
-
-class TimelineOut(BaseModel):
-    id: str
-    name: str
-    color: TIMELINE_COLORS
-    created_at: date
-    tasks: list[TimelineTaskOut]
-    is_active_today: bool   # any task spans today
-    overall_start: Optional[date] = None
-    overall_end: Optional[date] = None
+    tags: list[str] = Field(default=[])
 
 
 # ── Notifications ─────────────────────────────────────────────────────────────
 
 class NotificationItem(BaseModel):
-    type: Literal["future_plan", "missed", "tomorrow", "timeline", "info"]
+    type: Literal["future_plan", "missed", "tomorrow", "info"]
     message: str
 
 
@@ -94,7 +54,6 @@ class DashboardOut(BaseModel):
     mindset_note: str
     day_name: str
     today_date: date
-    timelines: list[TimelineOut]
 
 
 # ── Tracker ───────────────────────────────────────────────────────────────────
@@ -231,3 +190,16 @@ class RecurringOccurrenceOut(BaseModel):
     notes: Optional[str] = None
     reflection: Optional[str] = None
     difficulty: Optional[int] = None
+
+
+# ── Tags ─────────────────────────────────────────────────────────────────────
+
+class TagCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    color: str = Field(default="blue", max_length=20)
+
+
+class TagOut(BaseModel):
+    id: str
+    name: str
+    color: str
