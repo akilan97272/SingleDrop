@@ -88,6 +88,176 @@ async def load_all_tasks() -> list[dict]:
 
 
 # ═══════════════════════════════════════════════════
+#  HEALTH
+# ═══════════════════════════════════════════════════
+
+@app.get("/api/health")
+async def health():
+    return {"ok": True, "service": "single-drop"}
+
+
+# ═══════════════════════════════════════════════════
+#  DASHBOARD
+# ═══════════════════════════════════════════════════
+
+@app.get("/api/dashboard", response_model=DashboardOut)
+async def dashboard():
+    docs = await load_all_tasks()
+    current = today_local()
+    tomorrow = current + timedelta(days=1)
+
+    tasks = [to_task_out(d) for d in docs]
+    today_tasks     = [t for t in tasks if t.planned_date == current and t.status == "planned"]
+    tomorrow_tasks  = [t for t in tasks if t.planned_date == tomorrow and t.status == "planned"]
+    future_plans    = [t for t in tasks if t.planned_date > tomorrow and t.status == "planned"]
+    completed_today = [t for t in tasks if t.planned_date == current and t.status in ("completed", "completed_late")]
+    missed_tasks    = [t for t in tasks if t.status == "missed"]
+
+    completed_days = [t.completed_date for t in tasks if t.status == "completed" and t.completed_date]
+    streak, shield_used = compute_streak(completed_days)
+
+    notifications = []
+    if tomorrow_tasks:
+        notifications.append(NotificationItem(
+            type="tomorrow",
+            message=f"{len(tomorrow_tasks)} task(s) lined up for tomorrow's agenda.",
+        ))
+    for plan in future_plans:
+        d = days_away(plan.planned_date, current)
+        notifications.append(NotificationItem(
+            type="future_plan",
+            message=f"Future plan: '{plan.title}' is {d} day{'s' if d != 1 else ''} away ({plan.planned_date.isoformat()}).",
+        ))
+    if missed_tasks:
+        notifications.append(NotificationItem(
+            type="missed",
+            message=f"{len(missed_tasks)} task(s) sitting in deprecated. Complete or disband them.",
+        ))
+    if not notifications:
+        notifications.append(NotificationItem(type="info", message="Nothing pending. Clean slate energy."))
+
+    DAY_NAMES = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+
+    return DashboardOut(
+        today=today_tasks,
+        tomorrow=tomorrow_tasks,
+        future_plans=future_plans,
+        completed_today=completed_today,
+        missed_count=len(missed_tasks),
+        quote=random_quote(),
+        streak=streak,
+        shield_used=shield_used,
+        notifications=notifications,
+        mindset_note=random_mindset(),
+        day_name=DAY_NAMES[current.weekday()],
+        today_date=current,
+    )
+
+
+@app.get("/api/quote")
+async def quote():
+    return {"quote": random_quote()}
+
+
+@app.get("/api/notifications")
+async def notifications():
+    data = await dashboard()
+    return {
+        "notifications": [n.model_dump() for n in data.notifications],
+        "mindset_note": data.mindset_note,
+    }
+
+
+# ═══════════════════════════════════════════════════
+#  TASKS CRUD
+# ═══════════════════════════════════════════════════
+
+@app.get("/api/tasks")
+async def list_tasks(status: str | None = None):
+    docs = await load_all_tasks()
+    if status:
+        docs = [d for d in docs if d["status"] == status]
+    return [to_task_out(d).model_dump() for d in docs]
+
+
+@app.get("/api/future-plans")
+async def future_plans():
+    docs = await load_all_tasks()
+    current = today_local()
+    tomorrow = current + timedelta(days=1)
+    docs = [d for d in docs if d["status"] == "planned" and parse_date(d["planned_date"]) > tomorrow]
+    return [to_task_out(d).model_dump() for d in docs]
+
+
+@app.get("/api/missed")
+async def missed_tasks():
+    docs = await load_all_tasks()
+    return [to_task_out(d).model_dump() for d in docs if d["status"] == "missed"]
+
+
+@app.post("/api/tasks", response_model=TaskOut)
+async def create_task(payload: TaskCreate):
+    current = today_local()
+    doc = {
+        "_id": ObjectId(),
+        "title": payload.title.strip(),
+        "description": payload.description.strip(),
+        "planned_date": payload.planned_date.isoformat(),
+        "created_at": current.isoformat(),
+        "status": "planned",
+        "completed_date": None,
+        "missed_date": None,
+        "disbanded_date": None,
+        "missed_reason": None,
+        "tags": [str(t) for t in (payload.tags or [])],
+    }
+    await coll().insert_one(doc)
+    return to_task_out(doc)
+
+
+async def _get_task(task_id: str) -> dict:
+    try:
+        oid = ObjectId(task_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid task id")
+    doc = await coll().find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return doc
+
+
+@app.patch("/api/tasks/{task_id}/complete", response_model=TaskOut)
+async def complete_task(task_id: str):
+    doc = await _get_task(task_id)
+    if doc["status"] != "planned":
+        raise HTTPException(status_code=400, detail="Only planned tasks can be completed directly")
+    current = today_local()
+    await coll().update_one({"_id": doc["_id"]}, {"$set": {"status": "completed", "completed_date": current.isoformat()}})
+    return to_task_out(await coll().find_one({"_id": doc["_id"]}))
+
+
+@app.patch("/api/tasks/{task_id}/complete-late", response_model=TaskOut)
+async def complete_late_task(task_id: str):
+    doc = await _get_task(task_id)
+    if doc["status"] != "missed":
+        raise HTTPException(status_code=400, detail="Only missed tasks can be completed late")
+    current = today_local()
+    await coll().update_one({"_id": doc["_id"]}, {"$set": {"status": "completed_late", "completed_date": current.isoformat()}})
+    return to_task_out(await coll().find_one({"_id": doc["_id"]}))
+
+
+@app.patch("/api/tasks/{task_id}/disband", response_model=TaskOut)
+async def disband_task(task_id: str):
+    doc = await _get_task(task_id)
+    if doc["status"] != "missed":
+        raise HTTPException(status_code=400, detail="Only missed tasks can be disbanded")
+    current = today_local()
+    await coll().update_one({"_id": doc["_id"]}, {"$set": {"status": "disbanded", "disbanded_date": current.isoformat()}})
+    return to_task_out(await coll().find_one({"_id": doc["_id"]}))
+
+
+
+# ═══════════════════════════════════════════════════
 #  TIMELINE helpers
 # ═══════════════════════════════════════════════════
 
