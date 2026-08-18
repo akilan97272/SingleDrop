@@ -8,16 +8,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 from bson import ObjectId
 
-from .db import get_db
-from .schemas import (
+from app.db import get_db
+from app.schemas import (
     TaskCreate, TaskOut, DashboardOut, TrackerOut, DailyPoint,
     NotificationItem, StatsOut,
     PomodoroSessionCreate, PomodoroSessionComplete, PomodoroSessionOut, PomodoroStatsOut,
     RecurringTemplateCreate, RecurringTemplateUpdate, RecurringTemplateOut,
     OccurrenceNotesUpdate, RecurringOccurrenceOut,
     TagCreate, TagOut,
+    PromiseCreate, PromiseUpdate, PromiseOut, PromiseAnalyticsOut,
 )
-from .services import (
+from app.services import (
     today_local, task_label, compute_streak, classify_kind, parse_date,
     random_quote, random_mindset, days_away,
 )
@@ -896,6 +897,191 @@ async def tag_detail(tag_id: str):
         "sessions":             session_list,
         "tasks":                task_list,
     }
+
+
+
+# ═══════════════════════════════════════════════════
+#  PROMISES
+# ═══════════════════════════════════════════════════
+
+def prm_coll():
+    return get_db()["promises"]
+
+
+def _to_prm_out(doc: dict, focus_minutes: float = 0.0, sessions: int = 0) -> PromiseOut:
+    avg = round(focus_minutes / sessions, 1) if sessions else 0.0
+    start = parse_date(doc["start_date"])
+    completed = parse_date(doc["completed_date"]) if doc.get("completed_date") else None
+    days_taken = (completed - start).days if completed else None
+    return PromiseOut(
+        id=str(doc["_id"]),
+        title=doc["title"],
+        description=doc.get("description", ""),
+        tags=[str(t) for t in (doc.get("tags") or [])],
+        status=doc.get("status", "active"),
+        start_date=start,
+        end_date=parse_date(doc["end_date"]) if doc.get("end_date") else None,
+        completed_date=completed,
+        broken_date=parse_date(doc["broken_date"]) if doc.get("broken_date") else None,
+        days_taken=days_taken,
+        created_at=doc.get("created_at", ""),
+        total_focus_minutes=round(focus_minutes, 1),
+        total_sessions=sessions,
+        avg_session_minutes=avg,
+    )
+
+
+async def _prm_focus(promise_id: str):
+    """Sum Pomodoro focus time where linked_promise_id matches."""
+    sessions = await pomo_coll().find(
+        {"end_time": {"$ne": None}, "linked_promise_id": promise_id}
+    ).to_list(length=10000)
+    total = float(sum(float(s.get("total_focus_minutes") or 0) for s in sessions))
+    return total, len(sessions)
+
+
+@app.get("/api/promises")
+async def list_promises(status: str | None = None):
+    query = {}
+    if status:
+        query["status"] = status
+    docs = await prm_coll().find(query).sort("created_at", -1).to_list(length=10000)
+    result = []
+    for doc in docs:
+        fm, ns = await _prm_focus(str(doc["_id"]))
+        result.append(_to_prm_out(doc, fm, ns).model_dump())
+    return result
+
+
+@app.post("/api/promises")
+async def create_promise(payload: PromiseCreate):
+    current = today_local()
+    doc = {
+        "_id": ObjectId(),
+        "title": payload.title.strip(),
+        "description": payload.description.strip(),
+        "tags": [str(t) for t in (payload.tags or [])],
+        "status": "active",
+        "start_date": (payload.start_date or current).isoformat(),
+        "end_date": payload.end_date.isoformat() if payload.end_date else None,
+        "completed_date": None,
+        "broken_date": None,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    await prm_coll().insert_one(doc)
+    return _to_prm_out(doc).model_dump()
+
+
+@app.patch("/api/promises/{prm_id}")
+async def update_promise(prm_id: str, payload: PromiseUpdate):
+    try:
+        oid = ObjectId(prm_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    doc = await prm_coll().find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(404, "Promise not found")
+    upd = {}
+    if payload.title       is not None: upd["title"]       = payload.title.strip()
+    if payload.description is not None: upd["description"] = payload.description.strip()
+    if payload.tags        is not None: upd["tags"]        = [str(t) for t in payload.tags]
+    if payload.end_date    is not None: upd["end_date"]    = payload.end_date.isoformat()
+    if upd:
+        await prm_coll().update_one({"_id": oid}, {"$set": upd})
+    doc = await prm_coll().find_one({"_id": oid})
+    fm, ns = await _prm_focus(prm_id)
+    return _to_prm_out(doc, fm, ns).model_dump()
+
+
+@app.patch("/api/promises/{prm_id}/complete")
+async def complete_promise(prm_id: str):
+    try:
+        oid = ObjectId(prm_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    doc = await prm_coll().find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(404, "Promise not found")
+    current = today_local()
+    start = parse_date(doc["start_date"])
+    days_taken = (current - start).days
+    await prm_coll().update_one({"_id": oid}, {"$set": {
+        "status": "completed",
+        "completed_date": current.isoformat(),
+    }})
+    doc = await prm_coll().find_one({"_id": oid})
+    fm, ns = await _prm_focus(prm_id)
+    return _to_prm_out(doc, fm, ns).model_dump()
+
+
+@app.patch("/api/promises/{prm_id}/break")
+async def break_promise(prm_id: str):
+    try:
+        oid = ObjectId(prm_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    doc = await prm_coll().find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(404, "Promise not found")
+    current = today_local()
+    await prm_coll().update_one({"_id": oid}, {"$set": {
+        "status": "broken",
+        "broken_date": current.isoformat(),
+    }})
+    doc = await prm_coll().find_one({"_id": oid})
+    fm, ns = await _prm_focus(prm_id)
+    return _to_prm_out(doc, fm, ns).model_dump()
+
+
+@app.delete("/api/promises/{prm_id}", status_code=204)
+async def delete_promise(prm_id: str):
+    try:
+        oid = ObjectId(prm_id)
+    except Exception:
+        raise HTTPException(400, "Invalid id")
+    await prm_coll().delete_one({"_id": oid})
+
+
+@app.get("/api/promises/analytics")
+async def promise_analytics():
+    docs = await prm_coll().find().to_list(length=10000)
+    active    = int(sum(1 for d in docs if d.get("status") == "active"))
+    completed = int(sum(1 for d in docs if d.get("status") == "completed"))
+    broken    = int(sum(1 for d in docs if d.get("status") == "broken"))
+
+    completion_days = []
+    for d in docs:
+        if d.get("status") == "completed" and d.get("completed_date") and d.get("start_date"):
+            days = (parse_date(d["completed_date"]) - parse_date(d["start_date"])).days
+            completion_days.append(days)
+    avg_days = round(sum(completion_days) / len(completion_days), 1) if completion_days else 0.0
+
+    # Total Pomodoro focus linked to any promise
+    pomo_sessions = await pomo_coll().find(
+        {"end_time": {"$ne": None}, "linked_promise_id": {"$exists": True}}
+    ).to_list(length=50000)
+    total_focus_hours = round(
+        float(sum(float(s.get("total_focus_minutes") or 0) for s in pomo_sessions)) / 60, 2
+    )
+
+    return {
+        "active": active,
+        "completed": completed,
+        "broken": broken,
+        "avg_completion_days": avg_days,
+        "total_focus_hours": total_focus_hours,
+    }
+
+
+# Also allow linking a Pomodoro session to a promise
+@app.patch("/api/pomodoro/sessions/{session_id}/link-promise")
+async def link_promise_to_session(session_id: str, promise_id: str):
+    try:
+        oid = ObjectId(session_id)
+    except Exception:
+        raise HTTPException(400, "Invalid session id")
+    await pomo_coll().update_one({"_id": oid}, {"$set": {"linked_promise_id": promise_id}})
+    return {"ok": True}
 
 
 async def spa_fallback(full_path: str):

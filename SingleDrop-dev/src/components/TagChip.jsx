@@ -10,32 +10,22 @@ const COLOR_STYLES = {
   red:    { bg: 'rgba(248,113,113,0.18)', text: 'var(--danger)'         },
   grey:   { bg: 'rgba(148,163,184,0.18)', text: 'var(--text-secondary)' },
 }
-
 export const TAG_COLORS = Object.keys(COLOR_STYLES)
-
-export function getTagStyle(color) {
-  return COLOR_STYLES[color] || COLOR_STYLES.blue
-}
+export function getTagStyle(color) { return COLOR_STYLES[color] || COLOR_STYLES.blue }
 
 export default function TagChip({ tag, onRemove, onClick, small = false }) {
   const s = getTagStyle(tag.color)
   return (
-    <span
-      onClick={onClick}
+    <span onClick={onClick}
       className={`inline-flex items-center gap-1 rounded-full font-semibold select-none
         ${small ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'}
-        ${onClick || onRemove ? 'cursor-pointer' : ''}
-        ${onClick ? 'hover:brightness-110 transition' : ''}
+        ${onClick ? 'cursor-pointer hover:brightness-110 transition' : ''}
       `}
-      style={{ background: s.bg, color: s.text }}
-    >
+      style={{ background: s.bg, color: s.text }}>
       {tag.name}
       {onRemove && (
-        <button type="button"
-          onClick={e => { e.stopPropagation(); onRemove(tag.id) }}
-          className="ml-0.5 opacity-60 hover:opacity-100 leading-none font-bold">
-          ×
-        </button>
+        <button type="button" onClick={e => { e.stopPropagation(); onRemove(tag.id) }}
+          className="ml-0.5 opacity-60 hover:opacity-100 leading-none font-bold">×</button>
       )}
     </span>
   )

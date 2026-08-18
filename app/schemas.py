@@ -4,7 +4,17 @@ from datetime import date
 from typing import Optional, Literal, Any
 from pydantic import BaseModel, Field, ConfigDict
 
-TaskStatus = Literal["planned", "completed", "missed", "completed_late", "disbanded"]
+TaskStatus    = Literal["planned", "completed", "missed", "completed_late", "disbanded"]
+PromiseStatus = Literal["active", "completed", "broken"]
+
+RecurrenceRule = Literal[
+    'daily', 'weekdays', 'weekends',
+    'every_n_days', 'weekly', 'every_n_weeks',
+    'monthly', 'selected_weekdays',
+]
+OccurrenceStatus = Literal['pending', 'completed', 'missed']
+
+
 # ── Task ──────────────────────────────────────────────────────────────────────
 
 class TaskCreate(BaseModel):
@@ -83,9 +93,9 @@ class TrackerOut(BaseModel):
 # ── Pomodoro ──────────────────────────────────────────────────────────────────
 
 class ReflectionData(BaseModel):
-    focus_score: Optional[int] = None   # 1–5
+    focus_score: Optional[int] = None
     distracted: Optional[bool] = None
-    energy_score: Optional[int] = None  # 1–5
+    energy_score: Optional[int] = None
     would_repeat: Optional[bool] = None
 
 
@@ -97,7 +107,7 @@ class PomodoroSessionCreate(BaseModel):
 
 
 class PomodoroSessionComplete(BaseModel):
-    end_time: str                       # ISO datetime
+    end_time: str
     total_focus_minutes: float
     total_break_minutes: float
     completed_cycles: int
@@ -122,31 +132,22 @@ class PomodoroSessionOut(BaseModel):
 
 
 class PomodoroStatsOut(BaseModel):
-    total_focus_today: float    # minutes
-    total_focus_week: float     # minutes
-    longest_session: float      # minutes
-    average_session: float      # minutes
+    total_focus_today: float
+    total_focus_week: float
+    longest_session: float
+    average_session: float
     sessions_completed: int
-    most_productive_hour: Optional[int] = None  # 0–23
+    most_productive_hour: Optional[int] = None
 
 
 # ── Recurring Tasks ───────────────────────────────────────────────────────────
-
-RecurrenceRule = Literal[
-    'daily', 'weekdays', 'weekends',
-    'every_n_days', 'weekly', 'every_n_weeks',
-    'monthly', 'selected_weekdays',
-]
-
-OccurrenceStatus = Literal['pending', 'completed', 'missed']
-
 
 class RecurringTemplateCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(default='', max_length=500)
     rule: RecurrenceRule
-    interval: int = Field(default=1, ge=1, le=365)  # for every_n_days / every_n_weeks
-    weekdays: list[int] = Field(default=[])          # 0=Mon … 6=Sun for selected_weekdays
+    interval: int = Field(default=1, ge=1, le=365)
+    weekdays: list[int] = Field(default=[])
     start_date: date
 
 
@@ -176,7 +177,7 @@ class RecurringTemplateOut(BaseModel):
 class OccurrenceNotesUpdate(BaseModel):
     notes: Optional[str] = None
     reflection: Optional[str] = None
-    difficulty: Optional[int] = None  # 1–5
+    difficulty: Optional[int] = None
 
 
 class RecurringOccurrenceOut(BaseModel):
@@ -203,3 +204,45 @@ class TagOut(BaseModel):
     id: str
     name: str
     color: str
+
+
+# ── Promises ──────────────────────────────────────────────────────────────────
+
+class PromiseCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=1000)
+    tags: list[str] = Field(default=[])
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+
+class PromiseUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[list[str]] = None
+    end_date: Optional[date] = None
+
+
+class PromiseOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    tags: list[str]
+    status: PromiseStatus
+    start_date: date
+    end_date: Optional[date] = None
+    completed_date: Optional[date] = None
+    broken_date: Optional[date] = None
+    days_taken: Optional[int] = None
+    created_at: str
+    total_focus_minutes: float = 0.0
+    total_sessions: int = 0
+    avg_session_minutes: float = 0.0
+
+
+class PromiseAnalyticsOut(BaseModel):
+    active: int
+    completed: int
+    broken: int
+    avg_completion_days: float
+    total_focus_hours: float

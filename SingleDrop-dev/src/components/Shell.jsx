@@ -5,7 +5,7 @@ import { api } from '../api'
 import {
   HomeIcon, ListIcon, TrackerIcon,
   FutureIcon, DeprecatedIcon, PlanIcon,
-  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon, TimerIcon, HelpIcon, RecurringIcon, TagIcon,
+  BellIcon, SunIcon, MoonIcon, MonoIcon, PlusIcon, TimerIcon, HelpIcon, RecurringIcon, TagIcon, PromiseIcon,
 } from './Icons'
 
 /* ── theme meta ── */
@@ -20,8 +20,9 @@ const NAV = [
   { to: '/',              Icon: HomeIcon,       label: 'Dashboard'       },
   { to: '/tasks',         Icon: ListIcon,       label: 'Tasks'           },
   { to: '/tracker',       Icon: TrackerIcon,    label: 'Tracker'         },
-  { to: '/recurring',     Icon: RecurringIcon,  label: 'Recurring'       },
   { to: '/tags',          Icon: TagIcon,         label: 'Tags'            },
+  { to: '/promises',      Icon: PromiseIcon,     label: 'Promises'        },
+  { to: '/recurring',     Icon: RecurringIcon, TagIcon, PromiseIcon,  label: 'Recurring'       },
   { to: '/pomodoro',      Icon: TimerIcon,      label: 'Pomodoro'        },
   { to: '/future-plans',  Icon: FutureIcon,     label: 'Future Plans'    },
   { to: '/deprecated',    Icon: DeprecatedIcon, label: 'Deprecated'      },

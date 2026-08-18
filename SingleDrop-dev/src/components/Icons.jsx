@@ -30,7 +30,8 @@ export const FlameIcon      = (p) => <svg viewBox="0 0 24 24" width={20} height=
 export const ShieldIcon     = (p) => <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...p}><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" /></svg>
 export const PlusIcon       = (p) => <svg viewBox="0 0 24 24" width={22} height={22} {...base} {...p}><path d="M12 5v14M5 12h14" /></svg>
 export const RecurringIcon = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>
-export const TagIcon        = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><path d="M12 2H6a2 2 0 0 0-2 2v6l8.59 8.59a2 2 0 0 0 2.82 0l4.59-4.59a2 2 0 0 0 0-2.82L12 2Z" /><circle cx="7.5" cy="7.5" r="1" fill="currentColor" stroke="none" /></svg>
+export const TagIcon       = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><path d="M12 2H6a2 2 0 0 0-2 2v6l8.59 8.59a2 2 0 0 0 2.82 0l4.59-4.59a2 2 0 0 0 0-2.82L12 2Z" /><circle cx="7.5" cy="7.5" r="1" fill="currentColor" stroke="none" /></svg>
+export const PromiseIcon    = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
 export const TrashIcon      = (p) => <svg viewBox="0 0 24 24" width={15} height={15} {...base} {...p}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
 export const ChevronDown    = (p) => <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...p}><path d="M6 9l6 6 6-6" /></svg>
 export const ChevronUp      = (p) => <svg viewBox="0 0 24 24" width={16} height={16} {...base} {...p}><path d="M18 15l-6-6-6 6" /></svg>
