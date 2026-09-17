@@ -6,9 +6,9 @@ from datetime import date, datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
-from bson import ObjectId
+import uuid
 
-from app.db import get_db
+from .db import get_collection, new_id
 from app.schemas import (
     TaskCreate, TaskOut, DashboardOut, TrackerOut, DailyPoint,
     NotificationItem, StatsOut,
@@ -45,14 +45,14 @@ DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 # ═══════════════════════════════════════════════════
 
 def coll():
-    return get_db()["tasks"]
+    return get_collection("tasks")
 
 
 def to_task_out(doc: dict) -> TaskOut:
     current = today_local()
     planned = parse_date(doc["planned_date"])
     return TaskOut(
-        id=str(doc["_id"]),
+        id=doc["_id"],
         title=doc["title"],
         description=doc.get("description", ""),
         planned_date=planned,
@@ -200,7 +200,7 @@ async def missed_tasks():
 async def create_task(payload: TaskCreate):
     current = today_local()
     doc = {
-        "_id": ObjectId(),
+        "_id": new_id(),
         "title": payload.title.strip(),
         "description": payload.description.strip(),
         "planned_date": payload.planned_date.isoformat(),
@@ -217,10 +217,9 @@ async def create_task(payload: TaskCreate):
 
 
 async def _get_task(task_id: str) -> dict:
-    try:
-        oid = ObjectId(task_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid task id")
+    oid = task_id
+    if not oid:
+        raise HTTPException(status_code=400, detail="Invalid id")
     doc = await coll().find_one({"_id": oid})
     if not doc:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -324,14 +323,14 @@ async def tracker(days: int = 90):
 # ═══════════════════════════════════════════════════
 
 def pomo_coll():
-    return get_db()["pomodoro_sessions"]
+    return get_collection("pomodoro_sessions")
 
 
 def to_pomo_out(doc: dict) -> PomodoroSessionOut:
     refl = doc.get("reflection")
     from .schemas import ReflectionData
     return PomodoroSessionOut(
-        id=str(doc["_id"]),
+        id=doc["_id"],
         start_time=doc["start_time"],
         end_time=doc.get("end_time"),
         work_minutes=doc["work_minutes"],
@@ -352,13 +351,13 @@ async def create_pomodoro_session(payload: PomodoroSessionCreate):
     linked_title = None
     if payload.linked_task_id:
         try:
-            t = await coll().find_one({"_id": ObjectId(payload.linked_task_id)})
+            t = await coll().find_one({"_id": payload.linked_task_id})
             if t:
                 linked_title = t["title"]
         except Exception:
             pass
     doc = {
-        "_id": ObjectId(),
+        "_id": new_id(),
         "start_time": datetime.utcnow().isoformat(),
         "end_time": None,
         "work_minutes": payload.work_minutes,
@@ -378,10 +377,9 @@ async def create_pomodoro_session(payload: PomodoroSessionCreate):
 
 @app.patch("/api/pomodoro/sessions/{session_id}/complete", response_model=PomodoroSessionOut)
 async def complete_pomodoro_session(session_id: str, payload: PomodoroSessionComplete):
-    try:
-        oid = ObjectId(session_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid session id")
+    oid = session_id
+    if not oid:
+        raise HTTPException(status_code=400, detail="Invalid id")
     doc = await pomo_coll().find_one({"_id": oid})
     if not doc:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -474,10 +472,10 @@ async def pomodoro_stats():
 # ═══════════════════════════════════════════════════
 
 def rec_tpl_coll():
-    return get_db()["recurring_templates"]
+    return get_collection("recurring_templates")
 
 def rec_occ_coll():
-    return get_db()["recurring_occurrences"]
+    return get_collection("recurring_occurrences")
 
 # ── recurrence helpers ───────────────────────────
 
@@ -593,7 +591,7 @@ async def _generate_today(today: date) -> list[dict]:
             result.append(existing)
         else:
             doc = {
-                '_id': ObjectId(),
+                '_id': new_id(),
                 'template_id': str(tpl['_id']),
                 'template_title': tpl['title'],
                 'template_description': tpl.get('description', ''),
@@ -627,7 +625,7 @@ async def list_recurring_templates():
 @app.post('/api/recurring/templates', response_model=RecurringTemplateOut)
 async def create_recurring_template(payload: RecurringTemplateCreate):
     doc = {
-        '_id': ObjectId(),
+        '_id': new_id(),
         'title': payload.title.strip(),
         'description': payload.description.strip(),
         'rule': payload.rule,
@@ -643,7 +641,7 @@ async def create_recurring_template(payload: RecurringTemplateCreate):
 
 @app.patch('/api/recurring/templates/{tpl_id}', response_model=RecurringTemplateOut)
 async def update_recurring_template(tpl_id: str, payload: RecurringTemplateUpdate):
-    try: oid = ObjectId(tpl_id)
+    try: oid = tpl_id
     except Exception: raise HTTPException(400, 'Invalid id')
     tpl = await rec_tpl_coll().find_one({'_id': oid})
     if not tpl: raise HTTPException(404, 'Template not found')
@@ -664,7 +662,7 @@ async def update_recurring_template(tpl_id: str, payload: RecurringTemplateUpdat
 
 @app.patch('/api/recurring/templates/{tpl_id}/pause', response_model=RecurringTemplateOut)
 async def pause_recurring(tpl_id: str):
-    try: oid = ObjectId(tpl_id)
+    try: oid = tpl_id
     except Exception: raise HTTPException(400, 'Invalid id')
     tpl = await rec_tpl_coll().find_one({'_id': oid})
     if not tpl: raise HTTPException(404, 'Not found')
@@ -674,7 +672,7 @@ async def pause_recurring(tpl_id: str):
 
 @app.patch('/api/recurring/templates/{tpl_id}/resume', response_model=RecurringTemplateOut)
 async def resume_recurring(tpl_id: str):
-    try: oid = ObjectId(tpl_id)
+    try: oid = tpl_id
     except Exception: raise HTTPException(400, 'Invalid id')
     tpl = await rec_tpl_coll().find_one({'_id': oid})
     if not tpl: raise HTTPException(404, 'Not found')
@@ -684,7 +682,7 @@ async def resume_recurring(tpl_id: str):
 
 @app.delete('/api/recurring/templates/{tpl_id}', status_code=204)
 async def delete_recurring_template(tpl_id: str):
-    try: oid = ObjectId(tpl_id)
+    try: oid = tpl_id
     except Exception: raise HTTPException(400, 'Invalid id')
     await rec_tpl_coll().delete_one({'_id': oid})
     await rec_occ_coll().delete_many({'template_id': tpl_id})
@@ -701,7 +699,7 @@ async def recurring_today():
 
 @app.patch('/api/recurring/occurrences/{occ_id}/complete', response_model=RecurringOccurrenceOut)
 async def complete_recurring(occ_id: str):
-    try: oid = ObjectId(occ_id)
+    try: oid = occ_id
     except Exception: raise HTTPException(400, 'Invalid id')
     occ = await rec_occ_coll().find_one({'_id': oid})
     if not occ: raise HTTPException(404, 'Occurrence not found')
@@ -714,7 +712,7 @@ async def complete_recurring(occ_id: str):
 
 @app.patch('/api/recurring/occurrences/{occ_id}/miss', response_model=RecurringOccurrenceOut)
 async def miss_recurring(occ_id: str):
-    try: oid = ObjectId(occ_id)
+    try: oid = occ_id
     except Exception: raise HTTPException(400, 'Invalid id')
     occ = await rec_occ_coll().find_one({'_id': oid})
     if not occ: raise HTTPException(404, 'Occurrence not found')
@@ -724,7 +722,7 @@ async def miss_recurring(occ_id: str):
 
 @app.patch('/api/recurring/occurrences/{occ_id}/notes', response_model=RecurringOccurrenceOut)
 async def update_occurrence_notes(occ_id: str, payload: OccurrenceNotesUpdate):
-    try: oid = ObjectId(occ_id)
+    try: oid = occ_id
     except Exception: raise HTTPException(400, 'Invalid id')
     upd = {}
     if payload.notes      is not None: upd['notes']      = payload.notes
@@ -757,11 +755,11 @@ async def recurring_history_template(tpl_id: str, limit: int = 60):
 # ═══════════════════════════════════════════════════
 
 def tag_coll():
-    return get_db()["tags"]
+    return get_collection("tags")
 
 
 def _to_tag_out(doc: dict) -> TagOut:
-    return TagOut(id=str(doc["_id"]), name=doc["name"], color=doc.get("color", "blue"))
+    return TagOut(id=doc["_id"], name=doc["name"], color=doc.get("color", "blue"))
 
 
 @app.get("/api/tags")
@@ -777,16 +775,15 @@ async def create_tag(payload: TagCreate):
     )
     if existing:
         return _to_tag_out(existing)
-    doc = {"_id": ObjectId(), "name": payload.name.strip(), "color": payload.color}
+    doc = {"_id": new_id(), "name": payload.name.strip(), "color": payload.color}
     await tag_coll().insert_one(doc)
     return _to_tag_out(doc)
 
 
 @app.delete("/api/tags/{tag_id}", status_code=204)
 async def delete_tag(tag_id: str):
-    try:
-        oid = ObjectId(tag_id)
-    except Exception:
+    oid = tag_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     await tag_coll().delete_one({"_id": oid})
     await coll().update_many({}, {"$pull": {"tags": tag_id}})
@@ -794,9 +791,8 @@ async def delete_tag(tag_id: str):
 
 @app.patch("/api/tasks/{task_id}/tags")
 async def set_task_tags(task_id: str, tag_ids: list[str]):
-    try:
-        oid = ObjectId(task_id)
-    except Exception:
+    oid = task_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     await coll().update_one({"_id": oid}, {"$set": {"tags": tag_ids}})
     return {"id": task_id, "tags": tag_ids}
@@ -804,9 +800,8 @@ async def set_task_tags(task_id: str, tag_ids: list[str]):
 
 @app.patch("/api/pomodoro/sessions/{session_id}/tag-focus")
 async def set_pomodoro_tag_focus(session_id: str, tag_id: str, focus_minutes: float):
-    try:
-        oid = ObjectId(session_id)
-    except Exception:
+    oid = session_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     session = await pomo_coll().find_one({"_id": oid})
     if not session:
@@ -830,7 +825,7 @@ async def tag_analytics():
 
     result = []
     for tag in tags:
-        tid         = str(tag["_id"])
+        tid         = tag["_id"]
         tag_sessions = [s for s in sessions if s.get("focused_tag_id") == tid]
         total_focus  = float(sum(float(s.get("focused_tag_minutes") or 0) for s in tag_sessions))
         n_sessions   = len(tag_sessions)
@@ -850,9 +845,8 @@ async def tag_analytics():
 
 @app.get("/api/tags/{tag_id}/detail")
 async def tag_detail(tag_id: str):
-    try:
-        oid = ObjectId(tag_id)
-    except Exception:
+    oid = tag_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     tag = await tag_coll().find_one({"_id": oid})
     if not tag:
@@ -905,7 +899,7 @@ async def tag_detail(tag_id: str):
 # ═══════════════════════════════════════════════════
 
 def prm_coll():
-    return get_db()["promises"]
+    return get_collection("promises")
 
 
 def _to_prm_out(doc: dict, focus_minutes: float = 0.0, sessions: int = 0) -> PromiseOut:
@@ -914,7 +908,7 @@ def _to_prm_out(doc: dict, focus_minutes: float = 0.0, sessions: int = 0) -> Pro
     completed = parse_date(doc["completed_date"]) if doc.get("completed_date") else None
     days_taken = (completed - start).days if completed else None
     return PromiseOut(
-        id=str(doc["_id"]),
+        id=doc["_id"],
         title=doc["title"],
         description=doc.get("description", ""),
         tags=[str(t) for t in (doc.get("tags") or [])],
@@ -948,7 +942,7 @@ async def list_promises(status: str | None = None):
     docs = await prm_coll().find(query).sort("created_at", -1).to_list(length=10000)
     result = []
     for doc in docs:
-        fm, ns = await _prm_focus(str(doc["_id"]))
+        fm, ns = await _prm_focus(doc["_id"])
         result.append(_to_prm_out(doc, fm, ns).model_dump())
     return result
 
@@ -957,7 +951,7 @@ async def list_promises(status: str | None = None):
 async def create_promise(payload: PromiseCreate):
     current = today_local()
     doc = {
-        "_id": ObjectId(),
+        "_id": new_id(),
         "title": payload.title.strip(),
         "description": payload.description.strip(),
         "tags": [str(t) for t in (payload.tags or [])],
@@ -974,9 +968,8 @@ async def create_promise(payload: PromiseCreate):
 
 @app.patch("/api/promises/{prm_id}")
 async def update_promise(prm_id: str, payload: PromiseUpdate):
-    try:
-        oid = ObjectId(prm_id)
-    except Exception:
+    oid = prm_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     doc = await prm_coll().find_one({"_id": oid})
     if not doc:
@@ -995,9 +988,8 @@ async def update_promise(prm_id: str, payload: PromiseUpdate):
 
 @app.patch("/api/promises/{prm_id}/complete")
 async def complete_promise(prm_id: str):
-    try:
-        oid = ObjectId(prm_id)
-    except Exception:
+    oid = prm_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     doc = await prm_coll().find_one({"_id": oid})
     if not doc:
@@ -1016,9 +1008,8 @@ async def complete_promise(prm_id: str):
 
 @app.patch("/api/promises/{prm_id}/break")
 async def break_promise(prm_id: str):
-    try:
-        oid = ObjectId(prm_id)
-    except Exception:
+    oid = prm_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     doc = await prm_coll().find_one({"_id": oid})
     if not doc:
@@ -1035,9 +1026,8 @@ async def break_promise(prm_id: str):
 
 @app.delete("/api/promises/{prm_id}", status_code=204)
 async def delete_promise(prm_id: str):
-    try:
-        oid = ObjectId(prm_id)
-    except Exception:
+    oid = prm_id
+    if not oid:
         raise HTTPException(400, "Invalid id")
     await prm_coll().delete_one({"_id": oid})
 
@@ -1076,10 +1066,9 @@ async def promise_analytics():
 # Also allow linking a Pomodoro session to a promise
 @app.patch("/api/pomodoro/sessions/{session_id}/link-promise")
 async def link_promise_to_session(session_id: str, promise_id: str):
-    try:
-        oid = ObjectId(session_id)
-    except Exception:
-        raise HTTPException(400, "Invalid session id")
+    oid = session_id
+    if not oid:
+        raise HTTPException(400, "Invalid id")
     await pomo_coll().update_one({"_id": oid}, {"$set": {"linked_promise_id": promise_id}})
     return {"ok": True}
 
