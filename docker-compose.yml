@@ -18,4 +18,4 @@ services:
       - /srv/SingleDrop:/srv/SingleDrop
 
     ports:
-      - "8000:8102"
+      - "8102:8000"
