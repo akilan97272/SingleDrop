@@ -1,30 +1,21 @@
 services:
 
-  # ── MongoDB ──────────────────────────────────────────────────────────────
-  mongo:
-    image: mongo:7
-    container_name: singledrop-mongo
-    restart: unless-stopped
-    volumes:
-      - mongo_data:/data/db
-    ports:
-      - "27017:27017"
-
-  # ── Backend (also serves the built frontend via FastAPI StaticFiles) ─────
+  # ── SingleDrop Backend ────────────────────────────────────────────────
   backend:
     build: .
     container_name: singledrop-backend
     restart: unless-stopped
-    env_file:
-      - .env                        # root-level .env (MONGO_URL, MONGO_DB, etc.)
-    environment:
-      MONGO_URL: mongodb://mongo:27017
-      MONGO_DB: single_drop
-      CORS_ORIGINS: "*"
-    depends_on:
-      - mongo
-    ports:
-      - "8000:8000"
 
-volumes:
-  mongo_data:
+    env_file:
+      - .env
+
+    environment:
+      CORS_ORIGINS: "*"
+      JSON_STORE_PATH: /srv/SingleDrop
+
+    volumes:
+      # Persistent JSON file storage
+      - /srv/SingleDrop:/srv/SingleDrop
+
+    ports:
+      - "8000:8102"
