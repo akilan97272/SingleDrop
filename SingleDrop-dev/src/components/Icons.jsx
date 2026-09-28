@@ -16,6 +16,7 @@ export const BellIcon       = (p) => <svg viewBox="0 0 24 24" width={20} height=
 export const SunIcon        = (p) => <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>
 export const MoonIcon       = (p) => <svg viewBox="0 0 24 24" width={18} height={18} {...base} {...p}><path d="M21 12.5A9 9 0 1 1 11.5 3a7 7 0 0 0 9.5 9.5Z" /></svg>
 export const TimerIcon   = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M12 5V3M9 3h6" /></svg>
+export const MenuIcon     = (p) => <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" {...p}><path d="M4 6h16M4 12h16M4 18h16" /></svg>
 export const HelpIcon    = (p) => <svg viewBox="0 0 24 24" width={20} height={20} {...base} {...p}><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 4M12 18h.01" /></svg>
 export const MonoIcon    = (p) => <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></svg>
 export const PlayIcon    = (p) => <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor" {...p}><path d="M8 5.14v14l11-7-11-7Z" /></svg>
